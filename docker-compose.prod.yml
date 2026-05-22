@@ -40,6 +40,8 @@ services:
       dockerfile: backend/Dockerfile
     container_name: llm-gateway-backend
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
