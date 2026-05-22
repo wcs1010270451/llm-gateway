@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,8 @@ type Config struct {
 }
 
 func Load() Config {
+	loadLocalEnv()
+
 	authTokenSecret := getenv("AUTH_TOKEN_SECRET", "change-me-in-development")
 	return Config{
 		Env:               getenv("APP_ENV", "development"),
@@ -29,6 +32,42 @@ func Load() Config {
 			getenv("GIN_TRUSTED_PROXIES", "127.0.0.1"),
 		),
 	}
+}
+
+func loadLocalEnv() {
+	for _, path := range []string{"configs/.env", "../configs/.env", ".env"} {
+		if loadEnvFile(path) {
+			return
+		}
+	}
+}
+
+func loadEnvFile(path string) bool {
+	file, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		value = strings.Trim(value, `"'`)
+		if key == "" || os.Getenv(key) != "" {
+			continue
+		}
+		_ = os.Setenv(key, value)
+	}
+	return true
 }
 
 func (c Config) Validate() error {

@@ -25,7 +25,7 @@ sudo chmod 600 /secrets/gcp-credentials.json
 /secrets/gcp-credentials.json
 ```
 
-如果你想换宿主机路径，修改 `.env.prod`：
+如果你想换宿主机路径，修改 `configs/.env.prod`：
 
 ```env
 GCP_CREDENTIALS_FILE=/your/path/gcp-credentials.json
@@ -35,11 +35,11 @@ GOOGLE_APPLICATION_CREDENTIALS=/secrets/gcp-credentials.json
 ## 首次部署
 
 ```bash
-git clone <repo-url> /opt/llm-gateway
-cd /opt/llm-gateway
-cp configs/.env.prod.example .env.prod
-vim .env.prod
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+git clone <repo-url> /home/wangcs/code/llm-gateway
+cd /home/wangcs/code/llm-gateway
+cp configs/.env.prod.example configs/.env.prod
+vim configs/.env.prod
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 上线前必须修改：
@@ -64,7 +64,7 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml down
 
 ```bash
 cd /opt/llm-gateway
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 ## 日常更新
@@ -72,25 +72,25 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```bash
 cd /opt/llm-gateway
 git pull
-docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 ## 查看状态和日志
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml ps
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f backend
-docker compose --env-file .env.prod -f docker-compose.prod.yml logs -f caddy
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml ps
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml logs -f backend
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml logs -f caddy
 ```
 
 ## 停止服务
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml stop
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml stop
 ```
 
 如果要删除容器但保留数据卷：
 
 ```bash
-docker compose --env-file .env.prod -f docker-compose.prod.yml down
+docker compose --env-file configs/.env.prod -f docker-compose.prod.yml down
 ```
