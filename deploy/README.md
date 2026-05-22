@@ -1,4 +1,4 @@
-# 部署说明
+﻿# 部署说明
 
 生产环境使用根目录的 `docker-compose.prod.yml`。这套配置包含：
 
@@ -56,21 +56,21 @@ docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --b
 因为 WcsTransfer 的 Caddy 也占用 `80/443`，先停掉 WcsTransfer：
 
 ```bash
-cd /opt/WcsTransfer
+cd /home/wangcs/code/WcsTransfer
 docker compose --env-file .env.prod -f docker-compose.prod.yml down
 ```
 
 再启动本项目：
 
 ```bash
-cd /opt/llm-gateway
+cd /home/wangcs/code/llm-gateway
 docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 ## 日常更新
 
 ```bash
-cd /opt/llm-gateway
+cd /home/wangcs/code/llm-gateway
 git pull
 docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
 ```
