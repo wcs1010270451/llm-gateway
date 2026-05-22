@@ -1,0 +1,39 @@
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/
+!.vscode/launch.json
+
+# Environment
+.env
+.env.*
+!.env.example
+!configs/.env.example
+!configs/.env.prod.example
+
+# Backend
+backend/bin/
+backend/tmp/
+backend/coverage.out
+backend/cmd/server/__debug_bin.exe
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/node_modules/.tmp/
+
+# Logs
+*.log
+logs/
+
+# Secrets / local credentials
+exports/*.sql
+*.pem
+*.key
+*.p12
+*.sqlite
+*.db
+.claude/

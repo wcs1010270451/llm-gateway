@@ -1,0 +1,58 @@
+import { Navigate, RouterProvider, createBrowserRouter } from "react-router";
+
+import { RequireRole } from "./components/AuthGuards";
+import { AdminLayout } from "./layouts/AdminLayout";
+import { PortalLayout } from "./layouts/PortalLayout";
+import { DashboardPage } from "./pages/DashboardPage";
+import { LoginPage } from "./pages/LoginPage";
+import { ModelsPage } from "./pages/ModelsPage";
+import { ModelDetailPage } from "./pages/ModelDetailPage";
+import { ModelFamiliesPage } from "./pages/ModelFamiliesPage";
+import { ProviderDetailPage } from "./pages/ProviderDetailPage";
+import { ProvidersPage } from "./pages/ProvidersPage";
+import { LogsPage } from "./pages/LogsPage";
+import { PortalKeyDetailPage } from "./pages/PortalKeyDetailPage";
+import { PortalKeysPage } from "./pages/PortalKeysPage";
+import { UsersPage } from "./pages/UsersPage";
+
+const router = createBrowserRouter([
+  { path: "/login", element: <LoginPage /> },
+  {
+    path: "/",
+    element: <RequireRole role="admin" />,
+    children: [
+      {
+        element: <AdminLayout />,
+        children: [
+          { index: true, element: <Navigate to="/dashboard" replace /> },
+          { path: "dashboard", element: <DashboardPage /> },
+          { path: "providers", element: <ProvidersPage /> },
+          { path: "providers/:id", element: <ProviderDetailPage /> },
+          { path: "models", element: <ModelsPage /> },
+          { path: "model-families", element: <ModelFamiliesPage /> },
+          { path: "models/:id", element: <ModelDetailPage /> },
+          { path: "users", element: <UsersPage /> },
+          { path: "logs", element: <LogsPage /> },
+        ],
+      },
+    ],
+  },
+  {
+    path: "/portal",
+    element: <RequireRole role="user" />,
+    children: [
+      {
+        element: <PortalLayout />,
+        children: [
+          { index: true, element: <Navigate to="/portal/keys" replace /> },
+          { path: "keys", element: <PortalKeysPage /> },
+          { path: "keys/:id", element: <PortalKeyDetailPage /> },
+        ],
+      },
+    ],
+  },
+]);
+
+export function AppRouter() {
+  return <RouterProvider router={router} />;
+}

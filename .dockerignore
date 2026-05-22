@@ -1,0 +1,14 @@
+.git
+.github
+.vscode
+**/.DS_Store
+**/node_modules
+**/dist
+**/.venv
+**/__debug_bin.exe
+**/*.log
+.env
+.env.*
+!.env.example
+!configs/.env.example
+!configs/.env.prod.example
