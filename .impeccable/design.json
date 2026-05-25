@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-25T00:00:00+08:00",
+  "title": "Design System: LLM Gateway Portal",
+  "extensions": {
+    "colorMeta": {
+      "portal-canvas": { "role": "neutral", "displayName": "Air Canvas", "canonical": "#F4F9FC" },
+      "portal-surface": { "role": "neutral", "displayName": "Clear Surface", "canonical": "#FCFEFF" },
+      "portal-ink": { "role": "neutral", "displayName": "Deep Water Ink", "canonical": "#223842" },
+      "portal-primary": { "role": "primary", "displayName": "Sky Action Blue", "canonical": "#237BB2" },
+      "portal-accent": { "role": "secondary", "displayName": "Washed Sky Accent", "canonical": "#6FAECD" }
+    },
+    "shadows": [
+      {
+        "name": "panel-ambient",
+        "value": "0 1px 2px rgba(34, 56, 64, 0.03), 0 12px 30px rgba(32, 83, 118, 0.04)",
+        "purpose": "Portal panels on the paper canvas."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "180ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Hover and focus state changes."
+      }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "768px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary user action within the portal.",
+      "html": "<button class=\"ds-btn-primary\">新建 Key</button>",
+      "css": ".ds-btn-primary { height: 42px; padding: 0 18px; border: 0; border-radius: 8px; background: #237BB2; color: #FCFEFF; font: 500 14px Inter, sans-serif; transition: background 180ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: #1A6392; } .ds-btn-primary:focus-visible { outline: 3px solid rgba(35,123,178,.25); outline-offset: 2px; }"
+    },
+    {
+      "name": "Portal Panel",
+      "kind": "card",
+      "refersTo": "portal-panel",
+      "description": "Main task container on portal pages.",
+      "html": "<section class=\"ds-panel\"><h3>我的 Key</h3><p>安全管理访问凭据与用量。</p></section>",
+      "css": ".ds-panel { padding: 24px; border: 1px solid #D9E6EC; border-radius: 18px; background: #FCFEFF; color: #223842; box-shadow: 0 1px 2px rgba(34,56,64,.03), 0 12px 30px rgba(32,83,118,.04); font: 400 14px/1.65 Inter, sans-serif; } .ds-panel h3 { margin: 0 0 8px; font-size: 20px; } .ds-panel p { margin: 0; color: #60757D; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Ledger",
+    "overview": "A calm, light workspace for API access. Distinction comes through restrained composition and thoughtful safety feedback, not decorative effects.",
+    "keyCharacteristics": ["Airy blue surfaces", "Sky blue actions", "Washed blue guidance", "Accessible states"],
+    "rules": [
+      { "name": "The One Hue Rule", "body": "Use sky blue for actions and selection; use only lighter tints of the same hue for guidance backgrounds.", "section": "colors" }
+    ],
+    "dos": ["Do make access management and safety guidance immediately understandable."],
+    "donts": ["Don't use the traditional dark-sidebar admin template as the portal identity."]
+  }
+}

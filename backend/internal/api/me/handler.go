@@ -126,6 +126,28 @@ func (h *Handler) GetAPIKey(c *gin.Context) {
 	c.JSON(http.StatusOK, item)
 }
 
+func (h *Handler) RevealAPIKey(c *gin.Context) {
+	user, ok := currentUser(c)
+	if !ok {
+		writeError(c, http.StatusUnauthorized, "authentication_error", "login required")
+		return
+	}
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	result, err := h.keys.RevealForUser(c.Request.Context(), user, id)
+	if err != nil {
+		handleError(c, err)
+		return
+	}
+
+	c.Header("Cache-Control", "no-store")
+	c.Header("Pragma", "no-cache")
+	c.JSON(http.StatusOK, result)
+}
+
 func (h *Handler) ListModels(c *gin.Context) {
 	user, ok := currentUser(c)
 	if !ok {

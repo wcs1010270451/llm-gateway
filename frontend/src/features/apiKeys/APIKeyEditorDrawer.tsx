@@ -48,8 +48,9 @@ export function APIKeyEditorDrawer({ open, apiKey, submitting, onClose, onSubmit
 
   return (
     <Drawer
+      rootClassName="portal-drawer"
       title={apiKey ? "编辑 Key" : "新建 Key"}
-      width={480}
+      size={480}
       open={open}
       onClose={onClose}
       destroyOnHidden
@@ -64,7 +65,7 @@ export function APIKeyEditorDrawer({ open, apiKey, submitting, onClose, onSubmit
     >
       <Form layout="vertical" form={form} onFinish={handleFinish}>
         <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
-          <Input placeholder="本地 Claude Code" />
+          <Input placeholder="客服助手生产环境" />
         </Form.Item>
         <Form.Item name="status" label="状态" rules={[{ required: true }]}>
           <Select

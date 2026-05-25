@@ -3,6 +3,7 @@ import type {
   APIKey,
   APIKeyInput,
   CreatedAPIKey,
+  RevealedAPIKey,
   KeyModelUsageStat,
   ListResponse,
   Model,
@@ -53,6 +54,11 @@ export async function updateMyAPIKey(id: number, data: APIKeyInput) {
 
 export async function deleteMyAPIKey(id: number) {
   await apiClient.delete(`/api/me/api-keys/${id}`);
+}
+
+export async function revealMyAPIKey(id: number) {
+  const response = await apiClient.post<RevealedAPIKey>(`/api/me/api-keys/${id}/reveal`);
+  return response.data;
 }
 
 export interface DebugMessagesPayload {

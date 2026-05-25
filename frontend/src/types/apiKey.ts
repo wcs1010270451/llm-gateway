@@ -29,6 +29,11 @@ export interface APIKeyInput {
 
 export interface CreatedAPIKey {
   api_key: APIKey;
+  plain_key: string;
+}
+
+export interface RevealedAPIKey {
+  plain_key: string;
 }
 
 export interface KeyModelUsageStat {

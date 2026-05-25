@@ -1,15 +1,14 @@
 import { KeyOutlined, LogoutOutlined } from "@ant-design/icons";
-import { Button, Layout, Menu, Space, Typography } from "antd";
+import { Button, ConfigProvider, Layout, Space, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router";
 
 import { useAuthStore } from "../store/authStore";
-
-const navItems = [{ key: "/portal/keys", icon: <KeyOutlined />, label: "我的 Key" }];
 
 export function PortalLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, clearSession } = useAuthStore();
+  const keysActive = location.pathname.startsWith("/portal/keys");
 
   function logout() {
     clearSession();
@@ -17,35 +16,59 @@ export function PortalLayout() {
   }
 
   return (
-    <Layout className="app-shell">
-      <Layout.Sider width={232} className="app-sider">
-        <div className="brand">
-          <div className="brand-mark">LG</div>
-          <div>
-            <Typography.Text className="brand-title">LLM Gateway</Typography.Text>
-            <Typography.Text className="brand-subtitle">User Console</Typography.Text>
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#237bb2",
+          colorText: "#223840",
+          colorTextSecondary: "#60757d",
+          colorBorderSecondary: "#d9e6ec",
+          colorBgContainer: "#fcfeff",
+          borderRadius: 8,
+          borderRadiusLG: 18,
+          controlHeight: 42,
+        },
+      }}
+    >
+      <Layout className="portal-shell">
+        <a className="skip-link" href="#portal-main">
+          跳至主要内容
+        </a>
+        <header className="portal-header">
+          <div className="portal-header-inner">
+            <button type="button" className="portal-brand" onClick={() => navigate("/portal/keys")} aria-label="LLM Gateway 门户首页">
+              <span className="portal-brand-mark" aria-hidden="true">
+                LG
+              </span>
+              <span>
+                <Typography.Text className="portal-brand-title">LLM Gateway</Typography.Text>
+                <Typography.Text className="portal-brand-subtitle">Access workspace</Typography.Text>
+              </span>
+            </button>
+            <nav className="portal-nav" aria-label="门户导航">
+              <Button
+                type="text"
+                icon={<KeyOutlined />}
+                className={keysActive ? "portal-nav-item is-active" : "portal-nav-item"}
+                onClick={() => navigate("/portal/keys")}
+              >
+                访问凭据
+              </Button>
+            </nav>
+            <Space className="portal-account" size={12}>
+              <Typography.Text className="portal-email">{user?.email}</Typography.Text>
+              <Button className="portal-logout" type="text" icon={<LogoutOutlined />} onClick={logout} aria-label="退出登录">
+                退出
+              </Button>
+            </Space>
           </div>
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "/portal/keys"]}
-          items={navItems}
-          onClick={(item) => navigate(item.key)}
-        />
-      </Layout.Sider>
-      <Layout>
-        <Layout.Header className="app-header">
-          <Typography.Text strong>用户控制台</Typography.Text>
-          <Space className="header-user">
-            <Typography.Text type="secondary">{user?.email}</Typography.Text>
-            <Button type="text" icon={<LogoutOutlined />} onClick={logout} />
-          </Space>
-        </Layout.Header>
-        <Layout.Content className="app-content">
-          <Outlet />
+        </header>
+        <Layout.Content className="portal-content">
+          <main id="portal-main" className="portal-main" tabIndex={-1}>
+            <Outlet />
+          </main>
         </Layout.Content>
       </Layout>
-    </Layout>
+    </ConfigProvider>
   );
 }

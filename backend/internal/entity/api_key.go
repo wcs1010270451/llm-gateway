@@ -7,7 +7,7 @@ type APIKey struct {
 	UserID            int64      `json:"user_id"`
 	Name              string     `json:"name"`
 	KeyHash           string     `json:"-"`
-	PlainKey          string     `json:"-"`
+	KeyEncrypted      string     `gorm:"column:plain_key" json:"-"`
 	MaskedKey         string     `json:"masked_key"`
 	Status            string     `json:"status"`
 	RPMLimit          int        `json:"rpm_limit"`

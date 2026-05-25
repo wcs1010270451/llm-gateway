@@ -13,8 +13,9 @@ import (
 )
 
 type APIKeyService struct {
-	keys  *repository.APIKeyRepository
-	users *repository.UserRepository
+	keys   *repository.APIKeyRepository
+	users  *repository.UserRepository
+	cipher *ProviderKeyCipher
 }
 
 type APIKeyInput struct {
@@ -28,7 +29,12 @@ type APIKeyInput struct {
 }
 
 type CreatedAPIKey struct {
-	APIKey entity.APIKey `json:"api_key"`
+	APIKey   entity.APIKey `json:"api_key"`
+	PlainKey string        `json:"plain_key"`
+}
+
+type RevealedAPIKey struct {
+	PlainKey string `json:"plain_key"`
 }
 
 type APIAuthContext struct {
@@ -36,8 +42,8 @@ type APIAuthContext struct {
 	User   entity.User
 }
 
-func NewAPIKeyService(keys *repository.APIKeyRepository, users *repository.UserRepository) *APIKeyService {
-	return &APIKeyService{keys: keys, users: users}
+func NewAPIKeyService(keys *repository.APIKeyRepository, users *repository.UserRepository, cipher *ProviderKeyCipher) *APIKeyService {
+	return &APIKeyService{keys: keys, users: users, cipher: cipher}
 }
 
 func (s *APIKeyService) List(ctx context.Context) ([]entity.APIKey, error) {
@@ -66,7 +72,10 @@ func (s *APIKeyService) Create(ctx context.Context, input APIKeyInput) (CreatedA
 		return CreatedAPIKey{}, err
 	}
 	item.KeyHash = HashAPIKey(rawKey)
-	item.PlainKey = rawKey
+	item.KeyEncrypted, err = s.cipher.Encrypt(rawKey)
+	if err != nil {
+		return CreatedAPIKey{}, err
+	}
 	item.MaskedKey = maskAPIKey(rawKey)
 
 	if err := s.keys.Create(ctx, &item); err != nil {
@@ -77,7 +86,7 @@ func (s *APIKeyService) Create(ctx context.Context, input APIKeyInput) (CreatedA
 		return CreatedAPIKey{}, err
 	}
 
-	return CreatedAPIKey{APIKey: created}, nil
+	return CreatedAPIKey{APIKey: created, PlainKey: rawKey}, nil
 }
 
 func (s *APIKeyService) CreateForUser(ctx context.Context, user entity.User, input APIKeyInput) (CreatedAPIKey, error) {
@@ -135,6 +144,38 @@ func (s *APIKeyService) DeleteForUser(ctx context.Context, user entity.User, id 
 		return err
 	}
 	return s.keys.Delete(ctx, id)
+}
+
+func (s *APIKeyService) RevealForUser(ctx context.Context, user entity.User, id int64) (RevealedAPIKey, error) {
+	if user.Role != "user" {
+		return RevealedAPIKey{}, validationError("admin users cannot reveal api keys")
+	}
+
+	item, err := s.keys.GetByUser(ctx, user.ID, id)
+	if err != nil {
+		return RevealedAPIKey{}, err
+	}
+	if strings.TrimSpace(item.KeyEncrypted) == "" {
+		return RevealedAPIKey{}, validationError("full key is unavailable; create a new key to enable copying")
+	}
+
+	plainKey, err := s.cipher.Decrypt(item.KeyEncrypted)
+	if err != nil {
+		return RevealedAPIKey{}, err
+	}
+
+	encryptedKey, err := s.cipher.Encrypt(item.KeyEncrypted)
+	if err != nil {
+		return RevealedAPIKey{}, err
+	}
+	if encryptedKey != item.KeyEncrypted {
+		item.KeyEncrypted = encryptedKey
+		if err := s.keys.Update(ctx, &item); err != nil {
+			return RevealedAPIKey{}, err
+		}
+	}
+
+	return RevealedAPIKey{PlainKey: plainKey}, nil
 }
 
 func (s *APIKeyService) Authenticate(ctx context.Context, rawKey string) (APIAuthContext, error) {

@@ -2,17 +2,19 @@ import { Typography } from "antd";
 import type { ReactNode } from "react";
 
 interface PageHeaderProps {
+  eyebrow?: string;
   title: string;
   description?: string;
   actions?: ReactNode;
 }
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, description, actions }: PageHeaderProps) {
   return (
     <div className="page-header">
-      <div>
-        <Typography.Title level={2}>{title}</Typography.Title>
-        {description ? <Typography.Text type="secondary">{description}</Typography.Text> : null}
+      <div className="page-header-copy">
+        {eyebrow ? <Typography.Text className="page-eyebrow">{eyebrow}</Typography.Text> : null}
+        <Typography.Title level={1}>{title}</Typography.Title>
+        {description ? <Typography.Paragraph className="page-description">{description}</Typography.Paragraph> : null}
       </div>
       {actions ? <div className="page-header-actions">{actions}</div> : null}
     </div>

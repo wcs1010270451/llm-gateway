@@ -201,24 +201,25 @@ export function PortalKeyDetailPage() {
   ];
 
   return (
-    <div className="page-stack">
+    <div className="page-stack portal-key-detail">
       <PageHeader
-        title="Key 详情"
-        description="查看这把 Key 的基本信息、模型用量、调用日志，并直接发起调试请求。"
+        eyebrow="CREDENTIAL DETAIL"
+        title={keyQuery.data?.name ?? "Key 详情"}
+        description="查看凭据配置、模型用量和调用轨迹，并在需要时直接验证 API 响应。"
         actions={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/portal/keys")}>
               返回
             </Button>
-            <Button type="primary" onClick={() => setDebugOpen(true)}>
+            <Button type="primary" icon={<SendOutlined />} onClick={() => setDebugOpen(true)}>
               API 调试
             </Button>
           </>
         }
       />
 
-      <Card title="基本信息" loading={keyQuery.isLoading}>
-        <Descriptions bordered column={3} size="small">
+      <Card className="portal-panel" title="凭据配置" loading={keyQuery.isLoading}>
+        <Descriptions className="portal-descriptions" bordered column={{ xs: 1, sm: 2, lg: 3 }} size="small">
           <Descriptions.Item label="名称">{keyQuery.data?.name ?? "-"}</Descriptions.Item>
           <Descriptions.Item label="状态">{keyQuery.data ? <StatusTag value={keyQuery.data.status} /> : "-"}</Descriptions.Item>
           <Descriptions.Item label="脱敏 Key">{keyQuery.data?.masked_key ?? "-"}</Descriptions.Item>
@@ -231,12 +232,13 @@ export function PortalKeyDetailPage() {
         </Descriptions>
       </Card>
 
-      <Card title="模型用量">
-        <Table rowKey="public_model_name" columns={statColumns} dataSource={statsQuery.data?.items ?? []} loading={statsQuery.isLoading} pagination={false} scroll={{ x: "max-content" }} />
+      <Card className="portal-panel" title="模型用量">
+        <Table className="portal-table" rowKey="public_model_name" columns={statColumns} dataSource={statsQuery.data?.items ?? []} loading={statsQuery.isLoading} pagination={false} scroll={{ x: "max-content" }} />
       </Card>
 
-      <Card title="调用日志">
+      <Card className="portal-panel" title="调用日志" extra={<Typography.Text type="secondary">选择一行查看请求详情</Typography.Text>}>
         <Table
+          className="portal-table portal-log-table"
           rowKey="id"
           columns={logColumns}
           dataSource={logsQuery.data?.items ?? []}
@@ -259,6 +261,7 @@ export function PortalKeyDetailPage() {
       </Card>
 
       <Modal
+        className="portal-modal"
         open={debugOpen}
         title="API 调试"
         width={720}
@@ -330,7 +333,7 @@ export function PortalKeyDetailPage() {
         </Space>
       </Modal>
 
-      <Drawer open={selectedLogID !== null} title="日志详情" width={760} onClose={() => setSelectedLogID(null)} destroyOnHidden>
+      <Drawer rootClassName="portal-drawer" open={selectedLogID !== null} title="日志详情" size={760} onClose={() => setSelectedLogID(null)} destroyOnHidden>
         {logDetailQuery.isLoading || !logDetailQuery.data ? (
           <Typography.Text type="secondary">正在加载...</Typography.Text>
         ) : (
