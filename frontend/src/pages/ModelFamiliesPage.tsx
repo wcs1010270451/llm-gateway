@@ -86,11 +86,12 @@ export function ModelFamiliesPage() {
   return (
     <div className="page-stack">
       <PageHeader
+        eyebrow="MODEL TAXONOMY"
         title="模型系列"
         description="维护模型系列字典，新增模型时从这里选择系列。"
         actions={
           <>
-            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} />
+            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} aria-label="刷新模型系列列表" />
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -104,8 +105,8 @@ export function ModelFamiliesPage() {
           </>
         }
       />
-      <Card>
-        <Table rowKey="id" columns={columns} dataSource={query.data?.items ?? []} loading={query.isLoading} pagination={false} />
+      <Card className="admin-panel admin-table-panel">
+        <Table className="admin-table" rowKey="id" columns={columns} dataSource={query.data?.items ?? []} loading={query.isLoading} pagination={false} />
       </Card>
       <ModelFamilyDrawer
         open={drawerOpen}

@@ -36,6 +36,7 @@ type RequestLog struct {
 	ResponsePreview  datatypes.JSON `gorm:"column:response_preview" json:"response_preview"`
 	Metadata         datatypes.JSON `json:"metadata"`
 	CreatedAt        time.Time      `json:"created_at"`
+	User             *User          `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 type KeyModelUsageStat struct {
@@ -44,5 +45,15 @@ type KeyModelUsageStat struct {
 	PromptTokens     int64   `json:"prompt_tokens"`
 	CompletionTokens int64   `json:"completion_tokens"`
 	TotalTokens      int64   `json:"total_tokens"`
+	EstimatedCost    float64 `json:"estimated_cost"`
+}
+
+type RequestUsageSummary struct {
+	RequestCount     int64   `json:"request_count"`
+	SuccessCount     int64   `json:"success_count"`
+	ActiveUserCount  int64   `json:"active_user_count"`
+	ActiveKeyCount   int64   `json:"active_key_count"`
+	TotalTokens      int64   `json:"total_tokens"`
+	AverageLatencyMS float64 `json:"average_latency_ms"`
 	EstimatedCost    float64 `json:"estimated_cost"`
 }

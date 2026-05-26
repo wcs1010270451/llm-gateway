@@ -1,9 +1,9 @@
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Modal, message } from "antd";
+import { Button, Card, Modal, Select, Typography, message } from "antd";
 import { useState } from "react";
 
-import { createModel, deleteModel, fetchActiveModelFamilies, fetchModels, updateModel } from "../api/admin";
+import { createModel, deleteModel, fetchActiveModelFamilies, fetchModelFamilies, fetchModelPage, updateModel } from "../api/admin";
 import { PageHeader } from "../components/PageHeader";
 import { ModelEditorDrawer } from "../features/models/ModelEditorDrawer";
 import { ModelTable } from "../features/models/ModelTable";
@@ -24,18 +24,28 @@ function buildModelInput(model: Model, status: Model["status"]): ModelInput {
 
 export function ModelsPage() {
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["models"], queryFn: fetchModels });
+  const [page, setPage] = useState(1);
+  const [selectedFamily, setSelectedFamily] = useState<string>();
+  const query = useQuery({
+    queryKey: ["models", "page", page, selectedFamily],
+    queryFn: () => fetchModelPage({ page, page_size: 10, family: selectedFamily }),
+  });
   const familiesQuery = useQuery({ queryKey: ["model-families", "active"], queryFn: fetchActiveModelFamilies });
-  const [editing, setEditing] = useState<Model | undefined>();
+  const filterFamiliesQuery = useQuery({ queryKey: ["model-families"], queryFn: fetchModelFamilies });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const models = query.data?.items ?? [];
+  const familyOptions = (filterFamiliesQuery.data?.items ?? []).map((family) => ({
+    label: family.display_name ? `${family.display_name} (${family.name})` : family.name,
+    value: family.name,
+  }));
+
   const saveMutation = useMutation({
-    mutationFn: (input: ModelInput) => (editing ? updateModel(editing.id, input) : createModel(input)),
+    mutationFn: createModel,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["models"] });
       message.success("模型已保存");
       setDrawerOpen(false);
-      setEditing(undefined);
     },
     onError: (error) => message.error(error.message),
   });
@@ -83,17 +93,17 @@ export function ModelsPage() {
   return (
     <div className="page-stack">
       <PageHeader
+        eyebrow="ROUTING CATALOG"
         title="模型"
         description="维护平台对外提供的模型能力，并手动选择当前上游供应商模型。"
         actions={
           <>
-            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} />
+            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} aria-label="刷新模型列表" />
             <Button
               type="primary"
               icon={<PlusOutlined />}
               disabled={(familiesQuery.data?.items ?? []).length === 0}
               onClick={() => {
-                setEditing(undefined);
                 setDrawerOpen(true);
               }}
             >
@@ -102,27 +112,47 @@ export function ModelsPage() {
           </>
         }
       />
-      <Card>
+      <Card className="admin-panel admin-table-panel">
+        <div className="admin-filter-bar" aria-label="模型筛选">
+          <div>
+            <Typography.Text className="admin-filter-label">模型系列</Typography.Text>
+            <Select
+              className="admin-filter-select"
+              value={selectedFamily}
+              options={familyOptions}
+              allowClear
+              showSearch
+              optionFilterProp="label"
+              placeholder="全部系列"
+              onChange={(value) => {
+                setSelectedFamily(value);
+                setPage(1);
+              }}
+              aria-label="按模型系列筛选"
+            />
+          </div>
+          <Typography.Text className="admin-filter-count">
+            共 {query.data?.total ?? 0} 个模型
+          </Typography.Text>
+        </div>
         <ModelTable
-          data={query.data?.items ?? []}
+          data={models}
           loading={query.isLoading}
+          page={query.data?.page ?? page}
+          pageSize={query.data?.page_size ?? 10}
+          total={query.data?.total ?? 0}
           togglingModelId={toggleStatusMutation.isPending ? toggleStatusMutation.variables?.id : undefined}
-          onEdit={(model) => {
-            setEditing(model);
-            setDrawerOpen(true);
-          }}
           onDelete={confirmDelete}
           onToggleStatus={toggleStatus}
+          onPageChange={setPage}
         />
       </Card>
       <ModelEditorDrawer
         open={drawerOpen}
-        model={editing}
         families={familiesQuery.data?.items ?? []}
         submitting={saveMutation.isPending}
         onClose={() => {
           setDrawerOpen(false);
-          setEditing(undefined);
         }}
         onSubmit={(input) => saveMutation.mutateAsync(input).then(() => undefined)}
       />

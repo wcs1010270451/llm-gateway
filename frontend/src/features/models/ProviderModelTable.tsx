@@ -3,7 +3,7 @@ import type { ColumnsType } from "antd/es/table";
 
 import { StatusTag } from "../../components/StatusTag";
 import type { ProviderModel } from "../../types";
-import { formatPricing } from "../../utils/pricing";
+import { formatPricingAmount, pricingJSONToFields, type PricingFields } from "../../utils/pricing";
 
 interface ProviderModelTableProps {
   data: ProviderModel[];
@@ -12,6 +12,19 @@ interface ProviderModelTableProps {
   onEdit: (providerModel: ProviderModel) => void;
   onDelete: (providerModel: ProviderModel) => void;
   onSetActive: (providerModel: ProviderModel) => void;
+}
+
+function getPricing(record: ProviderModel): PricingFields {
+  if (Object.keys(record.pricing_json ?? {}).length > 0) {
+    return pricingJSONToFields(record.pricing_json, "USD");
+  }
+
+  return {
+    pricing_currency: "USD",
+    pricing_input: record.input_cost_per_1m,
+    pricing_output: record.output_cost_per_1m,
+    pricing_cache: 0,
+  };
 }
 
 export function ProviderModelTable({
@@ -35,13 +48,31 @@ export function ProviderModelTable({
     },
     { title: "上游模型名", dataIndex: "upstream_model" },
     {
-      title: "供应商成本 / 1M",
-      key: "cost",
-      width: 190,
-      render: (_, record) =>
-        Object.keys(record.pricing_json ?? {}).length > 0
-          ? formatPricing(record.pricing_json, "USD")
-          : `USD ${record.input_cost_per_1m} / ${record.output_cost_per_1m} / 0`,
+      title: "输入成本 / 1M",
+      key: "input_cost",
+      width: 130,
+      render: (_, record) => {
+        const pricing = getPricing(record);
+        return formatPricingAmount(pricing.pricing_input, pricing.pricing_currency);
+      },
+    },
+    {
+      title: "输出成本 / 1M",
+      key: "output_cost",
+      width: 130,
+      render: (_, record) => {
+        const pricing = getPricing(record);
+        return formatPricingAmount(pricing.pricing_output, pricing.pricing_currency);
+      },
+    },
+    {
+      title: "缓存成本 / 1M",
+      key: "cache_cost",
+      width: 130,
+      render: (_, record) => {
+        const pricing = getPricing(record);
+        return formatPricingAmount(pricing.pricing_cache, pricing.pricing_currency);
+      },
     },
     { title: "超时", dataIndex: "timeout_seconds", width: 100, render: (value) => `${value}s` },
     {
@@ -82,12 +113,14 @@ export function ProviderModelTable({
 
   return (
     <Table
+      className="admin-table"
       rowKey="id"
       size="middle"
       columns={columns}
       dataSource={data}
       loading={loading}
       pagination={false}
+      scroll={{ x: "max-content" }}
     />
   );
 }

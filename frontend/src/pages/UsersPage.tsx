@@ -49,11 +49,12 @@ export function UsersPage() {
   return (
     <div className="page-stack">
       <PageHeader
+        eyebrow="ACCESS CONTROL"
         title="用户"
         description="管理员添加和禁用用户；不提供公开注册。普通用户登录后只能管理自己的 Key。"
         actions={
           <>
-            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} />
+            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} aria-label="刷新用户列表" />
             <Button
               type="primary"
               icon={<PlusOutlined />}
@@ -67,7 +68,7 @@ export function UsersPage() {
           </>
         }
       />
-      <Card>
+      <Card className="admin-panel admin-table-panel">
         <UserTable
           data={query.data?.items ?? []}
           loading={query.isLoading}

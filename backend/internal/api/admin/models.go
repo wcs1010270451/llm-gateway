@@ -2,6 +2,7 @@ package admin
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 
@@ -10,6 +11,19 @@ import (
 )
 
 func (h *Handler) ListModels(c *gin.Context) {
+	if c.Query("page") != "" || c.Query("page_size") != "" || c.Query("family") != "" {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+		result, err := h.models.ListPage(c.Request.Context(), c.Query("family"), page, pageSize)
+		if err != nil {
+			apierror.Database(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, result)
+		return
+	}
+
 	items, err := h.models.List(c.Request.Context())
 	if err != nil {
 		apierror.Database(c, err)

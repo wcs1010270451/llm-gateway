@@ -1,6 +1,7 @@
 import { apiClient } from "./http";
 import type {
   ListResponse,
+  KeyModelUsageStat,
   Model,
   ModelFamily,
   ModelFamilyInput,
@@ -20,6 +21,16 @@ export interface AdminStats {
   total_tokens: number;
   provider_count: number;
   model_count: number;
+  recent_usage: {
+    request_count: number;
+    success_count: number;
+    active_user_count: number;
+    active_key_count: number;
+    total_tokens: number;
+    average_latency_ms: number;
+    estimated_cost: number;
+  };
+  top_models: KeyModelUsageStat[];
 }
 
 export async function fetchAdminStats() {
@@ -77,6 +88,11 @@ export async function deleteProvider(id: number) {
 
 export async function fetchModels() {
   const response = await apiClient.get<ListResponse<Model>>("/api/admin/models");
+  return response.data;
+}
+
+export async function fetchModelPage(params: { page: number; page_size: number; family?: string }) {
+  const response = await apiClient.get<PageResponse<Model>>("/api/admin/models", { params });
   return response.data;
 }
 

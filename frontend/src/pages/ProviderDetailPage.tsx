@@ -99,13 +99,15 @@ export function ProviderDetailPage() {
   return (
     <div className="page-stack">
       <PageHeader
-        title={provider ? `供应商：${provider.name}` : `供应商 #${id}`}
+        eyebrow="UPSTREAM CONNECTION"
+        title={provider ? provider.name : `#${id}`}
         description="查看该供应商提供的上游模型，并维护它们与平台模型的映射。"
         actions={
           <>
             <Button onClick={() => navigate("/providers")}>返回</Button>
             <Button
               icon={<ReloadOutlined />}
+              aria-label="刷新供应商详情"
               onClick={() => {
                 providerQuery.refetch();
                 routesQuery.refetch();
@@ -127,8 +129,8 @@ export function ProviderDetailPage() {
       />
 
       {provider ? (
-        <Card>
-          <Descriptions size="small" column={3}>
+        <Card className="admin-panel">
+          <Descriptions className="admin-descriptions" size="small" column={3}>
             <Descriptions.Item label="名称">{provider.name}</Descriptions.Item>
             <Descriptions.Item label="标识">{provider.slug}</Descriptions.Item>
             <Descriptions.Item label="状态">
@@ -148,6 +150,7 @@ export function ProviderDetailPage() {
       ) : null}
 
       <Card
+        className="admin-panel admin-table-panel"
         title="上游模型列表"
         extra={
           <Space>

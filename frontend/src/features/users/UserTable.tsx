@@ -53,5 +53,5 @@ export function UserTable({ data, loading, onEdit, onDelete }: UserTableProps) {
     },
   ];
 
-  return <Table rowKey="id" size="middle" columns={columns} dataSource={data} loading={loading} pagination={false} />;
+  return <Table className="admin-table" rowKey="id" size="middle" columns={columns} dataSource={data} loading={loading} pagination={false} scroll={{ x: "max-content" }} />;
 }

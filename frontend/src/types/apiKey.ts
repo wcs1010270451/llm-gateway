@@ -75,4 +75,5 @@ export interface RequestLog {
   response_preview: unknown;
   metadata: unknown;
   created_at: string;
+  user?: User;
 }

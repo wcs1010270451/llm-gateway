@@ -44,16 +44,26 @@ export function ProviderTable({ data, loading, onEdit, onDelete }: ProviderTable
     {
       title: "操作",
       key: "actions",
-      width: 190,
+      width: 128,
       render: (_, record) => (
         <Space size={4}>
-          <Button size="small" onClick={() => navigate(`/providers/${record.id}`)}>
-            详情
-          </Button>
-          <Button size="small" onClick={() => onEdit(record)}>
+          <Button
+            size="small"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit(record);
+            }}
+          >
             编辑
           </Button>
-          <Button size="small" danger onClick={() => onDelete(record)}>
+          <Button
+            size="small"
+            danger
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete(record);
+            }}
+          >
             删除
           </Button>
         </Space>
@@ -61,5 +71,27 @@ export function ProviderTable({ data, loading, onEdit, onDelete }: ProviderTable
     },
   ];
 
-  return <Table rowKey="id" size="middle" columns={columns} dataSource={data} loading={loading} pagination={false} />;
+  return (
+    <Table
+      className="admin-table"
+      rowKey="id"
+      size="middle"
+      columns={columns}
+      dataSource={data}
+      loading={loading}
+      pagination={false}
+      scroll={{ x: "max-content" }}
+      onRow={(record) => ({
+        className: "admin-table-row-action",
+        tabIndex: 0,
+        onClick: () => navigate(`/providers/${record.id}`),
+        onKeyDown: (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            navigate(`/providers/${record.id}`);
+          }
+        },
+      })}
+    />
+  );
 }

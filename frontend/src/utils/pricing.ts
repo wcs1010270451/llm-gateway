@@ -38,3 +38,10 @@ export function formatPricing(value: Record<string, unknown> | undefined, fallba
   const pricing = pricingJSONToFields(value, fallbackCurrency);
   return `${pricing.pricing_currency} 输入 ${pricing.pricing_input} / 输出 ${pricing.pricing_output} / 缓存 ${pricing.pricing_cache}`;
 }
+
+export function formatPricingAmount(value: number, currency: string) {
+  const normalizedCurrency = currency.trim().toUpperCase();
+  const symbol = normalizedCurrency === "USD" ? "$" : normalizedCurrency === "CNY" || normalizedCurrency === "RMB" ? "￥" : `${currency} `;
+
+  return `${symbol}${value}`;
+}

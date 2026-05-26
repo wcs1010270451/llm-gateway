@@ -25,6 +25,27 @@ func (r *ModelRepository) List(ctx context.Context) ([]entity.Model, error) {
 	return items, err
 }
 
+func (r *ModelRepository) ListPage(ctx context.Context, family string, page int, pageSize int) ([]entity.Model, int64, error) {
+	query := r.db.WithContext(ctx).Model(&entity.Model{})
+	if family != "" {
+		query = query.Where("family = ?", family)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var items []entity.Model
+	err := query.
+		Preload("ActiveProviderModel.Provider").
+		Order("id DESC").
+		Limit(pageSize).
+		Offset((page - 1) * pageSize).
+		Find(&items).Error
+	return items, total, err
+}
+
 func (r *ModelRepository) Count(ctx context.Context) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).

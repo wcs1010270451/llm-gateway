@@ -24,6 +24,13 @@ type ModelInput struct {
 	ConfigJSON  map[string]any `json:"config_json"`
 }
 
+type ModelPage struct {
+	Items    []entity.Model `json:"items"`
+	Total    int64          `json:"total"`
+	Page     int            `json:"page"`
+	PageSize int            `json:"page_size"`
+}
+
 type ProviderModelInput struct {
 	ProviderID      int64          `json:"provider_id"`
 	ModelID         *int64         `json:"model_id"`
@@ -44,6 +51,15 @@ func NewModelService(models *repository.ModelRepository, families *repository.Mo
 
 func (s *ModelService) List(ctx context.Context) ([]entity.Model, error) {
 	return s.models.List(ctx)
+}
+
+func (s *ModelService) ListPage(ctx context.Context, family string, page int, pageSize int) (ModelPage, error) {
+	page, pageSize = normalizePagination(page, pageSize)
+	items, total, err := s.models.ListPage(ctx, strings.TrimSpace(family), page, pageSize)
+	if err != nil {
+		return ModelPage{}, err
+	}
+	return ModelPage{Items: items, Total: total, Page: page, PageSize: pageSize}, nil
 }
 
 func (s *ModelService) Get(ctx context.Context, id int64) (entity.Model, error) {

@@ -54,18 +54,19 @@ export function ProvidersPage() {
   return (
     <div className="page-stack">
       <PageHeader
+        eyebrow="UPSTREAM CONNECTIONS"
         title="供应商"
         description="管理上游通道，例如 Anthropic 官方、Claude Code、Google Vertex AI。"
         actions={
           <>
-            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} />
+            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} aria-label="刷新供应商列表" />
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
               新建供应商
             </Button>
           </>
         }
       />
-      <Card>
+      <Card className="admin-panel admin-table-panel">
         <ProviderTable
           data={query.data?.items ?? []}
           loading={query.isLoading}
