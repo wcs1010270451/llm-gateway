@@ -116,7 +116,11 @@ export function ProviderDetailPage() {
   const probeMutation = useMutation({
     mutationFn: () => probeClaudeProxy(providerId),
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({ queryKey: ["claude-proxies"] });
+      queryClient.setQueryData(["claude-proxies"], {
+        items: [result],
+        total: 1,
+      });
+      await claudeStatusQuery.refetch();
       if (result.probe_ok) {
         message.success("Claude 代理探测成功");
       } else {
@@ -216,11 +220,19 @@ export function ProviderDetailPage() {
             <Statistic title="Token 剩余" value={formatTokenHours(claudeStatus?.token_hours)} />
             <Statistic title="预计过期时间" value={estimateExpiresAt(claudeStatus?.checked_at, claudeStatus?.token_hours)} />
             <div className="admin-claude-status-meta">
+              <Typography.Text type="secondary">订阅类型</Typography.Text>
+              <Typography.Text>{claudeStatus?.subscription_type || "-"}</Typography.Text>
+            </div>
+            <div className="admin-claude-status-meta">
+              <Typography.Text type="secondary">限流档位</Typography.Text>
+              <Typography.Text>{claudeStatus?.rate_limit_tier || "-"}</Typography.Text>
+            </div>
+            <div className="admin-claude-status-meta">
               <Typography.Text type="secondary">可达性</Typography.Text>
               <Tag color={claudeStatus?.reachable ? "success" : "error"}>{claudeStatus?.reachable ? "可达" : "不可达"}</Tag>
             </div>
             <div className="admin-claude-status-meta">
-              <Typography.Text type="secondary">Claude Code</Typography.Text>
+              <Typography.Text type="secondary">Claude Code 版本</Typography.Text>
               <Typography.Text>{claudeStatus?.cc_version || "-"}</Typography.Text>
             </div>
             <div className="admin-claude-status-meta">

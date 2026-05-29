@@ -43,6 +43,8 @@ export interface ClaudeProxyStatus {
   proxy_status: string;
   token_hours?: number;
   cc_version?: string;
+  subscription_type?: string;
+  rate_limit_tier?: string;
   http_status?: number;
   error?: string;
   checked_at: string;

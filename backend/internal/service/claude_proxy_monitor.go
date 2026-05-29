@@ -20,18 +20,20 @@ type ClaudeProxyMonitorService struct {
 }
 
 type ClaudeProxyStatus struct {
-	ProviderID  int64    `json:"provider_id"`
-	Name        string   `json:"name"`
-	Slug        string   `json:"slug"`
-	Status      string   `json:"status"`
-	BaseURL     string   `json:"base_url"`
-	Reachable   bool     `json:"reachable"`
-	ProxyStatus string   `json:"proxy_status"`
-	TokenHours  *float64 `json:"token_hours,omitempty"`
-	CCVersion   string   `json:"cc_version,omitempty"`
-	HTTPStatus  int      `json:"http_status,omitempty"`
-	Error       string   `json:"error,omitempty"`
-	CheckedAt   string   `json:"checked_at"`
+	ProviderID       int64    `json:"provider_id"`
+	Name             string   `json:"name"`
+	Slug             string   `json:"slug"`
+	Status           string   `json:"status"`
+	BaseURL          string   `json:"base_url"`
+	Reachable        bool     `json:"reachable"`
+	ProxyStatus      string   `json:"proxy_status"`
+	TokenHours       *float64 `json:"token_hours,omitempty"`
+	CCVersion        string   `json:"cc_version,omitempty"`
+	SubscriptionType string   `json:"subscription_type,omitempty"`
+	RateLimitTier    string   `json:"rate_limit_tier,omitempty"`
+	HTTPStatus       int      `json:"http_status,omitempty"`
+	Error            string   `json:"error,omitempty"`
+	CheckedAt        string   `json:"checked_at"`
 }
 
 type ClaudeProxyProbeResult struct {
@@ -40,10 +42,12 @@ type ClaudeProxyProbeResult struct {
 }
 
 type claudeProxyHealthResponse struct {
-	Status     string   `json:"status"`
-	TokenHours *float64 `json:"token_hours"`
-	CCVersion  string   `json:"cc_version"`
-	Error      string   `json:"error"`
+	Status           string   `json:"status"`
+	TokenHours       *float64 `json:"token_hours"`
+	CCVersion        string   `json:"cc_version"`
+	SubscriptionType string   `json:"subscription_type"`
+	RateLimitTier    string   `json:"rate_limit_tier"`
+	Error            string   `json:"error"`
 }
 
 func NewClaudeProxyMonitorService(providers *ProviderService) *ClaudeProxyMonitorService {
@@ -103,8 +107,11 @@ func (s *ClaudeProxyMonitorService) Probe(ctx context.Context, providerID int64)
 	result.CheckedAt = time.Now().UTC().Format(time.RFC3339)
 	if !result.ProbeOK {
 		result.Error = readResponsePreview(resp.Body)
+		return result, nil
 	}
-	return result, nil
+
+	refreshed := s.checkHealth(ctx, provider)
+	return ClaudeProxyProbeResult{ClaudeProxyStatus: refreshed, ProbeOK: true}, nil
 }
 
 func (s *ClaudeProxyMonitorService) claudeCodeProviders(ctx context.Context) ([]entity.Provider, error) {
@@ -165,6 +172,8 @@ func (s *ClaudeProxyMonitorService) checkHealth(ctx context.Context, provider en
 	status.ProxyStatus = health.Status
 	status.TokenHours = health.TokenHours
 	status.CCVersion = health.CCVersion
+	status.SubscriptionType = health.SubscriptionType
+	status.RateLimitTier = health.RateLimitTier
 	status.Error = health.Error
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		status.Reachable = false
