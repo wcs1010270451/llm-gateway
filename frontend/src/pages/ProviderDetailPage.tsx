@@ -12,6 +12,7 @@ import {
   fetchProvider,
   fetchProviderModelRoutes,
   probeClaudeProxy,
+  refreshClaudeProxyToken,
   setActiveProviderModel,
   updateProviderModelRoute,
 } from "../api/admin";
@@ -130,6 +131,23 @@ export function ProviderDetailPage() {
     onError: (error) => message.error(error.message),
   });
 
+  const refreshTokenMutation = useMutation({
+    mutationFn: () => refreshClaudeProxyToken(providerId),
+    onSuccess: async (result) => {
+      queryClient.setQueryData(["claude-proxies"], {
+        items: [result],
+        total: 1,
+      });
+      await claudeStatusQuery.refetch();
+      if (result.refresh_ok) {
+        message.success("Claude Token 已刷新");
+      } else {
+        message.error(result.error || "Claude Token 刷新失败");
+      }
+    },
+    onError: (error) => message.error(error.message),
+  });
+
   function confirmDelete(providerModel: ProviderModel) {
     Modal.confirm({
       title: "删除上游模型",
@@ -207,6 +225,9 @@ export function ProviderDetailPage() {
             <Space>
               <Button size="small" onClick={() => claudeStatusQuery.refetch()} loading={claudeStatusQuery.isFetching}>
                 刷新状态
+              </Button>
+              <Button size="small" onClick={() => refreshTokenMutation.mutate()} loading={refreshTokenMutation.isPending}>
+                刷新 Token
               </Button>
               <Button size="small" type="primary" onClick={() => probeMutation.mutate()} loading={probeMutation.isPending}>
                 探测登录

@@ -41,6 +41,11 @@ type ClaudeProxyProbeResult struct {
 	ProbeOK bool `json:"probe_ok"`
 }
 
+type ClaudeProxyRefreshResult struct {
+	ClaudeProxyStatus
+	RefreshOK bool `json:"refresh_ok"`
+}
+
 type claudeProxyHealthResponse struct {
 	Status           string   `json:"status"`
 	TokenHours       *float64 `json:"token_hours"`
@@ -114,6 +119,18 @@ func (s *ClaudeProxyMonitorService) Probe(ctx context.Context, providerID int64)
 	return ClaudeProxyProbeResult{ClaudeProxyStatus: refreshed, ProbeOK: true}, nil
 }
 
+func (s *ClaudeProxyMonitorService) Refresh(ctx context.Context, providerID int64) (ClaudeProxyRefreshResult, error) {
+	provider, err := s.providers.Get(ctx, providerID)
+	if err != nil {
+		return ClaudeProxyRefreshResult{}, err
+	}
+	if !isClaudeProxyProvider(provider) {
+		return ClaudeProxyRefreshResult{}, validationError("provider is not a claude proxy")
+	}
+	status := s.refreshToken(ctx, provider)
+	return ClaudeProxyRefreshResult{ClaudeProxyStatus: status, RefreshOK: status.Error == "" && status.ProxyStatus == "ok"}, nil
+}
+
 func (s *ClaudeProxyMonitorService) claudeCodeProviders(ctx context.Context) ([]entity.Provider, error) {
 	items, err := s.providers.List(ctx)
 	if err != nil {
@@ -133,14 +150,7 @@ func isClaudeProxyProvider(provider entity.Provider) bool {
 }
 
 func (s *ClaudeProxyMonitorService) checkHealth(ctx context.Context, provider entity.Provider) ClaudeProxyStatus {
-	status := ClaudeProxyStatus{
-		ProviderID: provider.ID,
-		Name:       provider.Name,
-		Slug:       provider.Slug,
-		Status:     provider.Status,
-		BaseURL:    provider.BaseURL,
-		CheckedAt:  time.Now().UTC().Format(time.RFC3339),
-	}
+	status := baseClaudeProxyStatus(provider)
 	if strings.TrimSpace(provider.BaseURL) == "" {
 		status.ProxyStatus = "missing_base_url"
 		status.Error = "base_url is required"
@@ -169,12 +179,7 @@ func (s *ClaudeProxyMonitorService) checkHealth(ctx context.Context, provider en
 		status.Error = err.Error()
 		return status
 	}
-	status.ProxyStatus = health.Status
-	status.TokenHours = health.TokenHours
-	status.CCVersion = health.CCVersion
-	status.SubscriptionType = health.SubscriptionType
-	status.RateLimitTier = health.RateLimitTier
-	status.Error = health.Error
+	applyHealthResponse(&status, health)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		status.Reachable = false
 		if status.Error == "" {
@@ -182,6 +187,66 @@ func (s *ClaudeProxyMonitorService) checkHealth(ctx context.Context, provider en
 		}
 	}
 	return status
+}
+
+func (s *ClaudeProxyMonitorService) refreshToken(ctx context.Context, provider entity.Provider) ClaudeProxyStatus {
+	status := baseClaudeProxyStatus(provider)
+	if strings.TrimSpace(provider.BaseURL) == "" {
+		status.ProxyStatus = "missing_base_url"
+		status.Error = "base_url is required"
+		return status
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, joinURL(provider.BaseURL, "/refresh"), nil)
+	if err != nil {
+		status.ProxyStatus = "error"
+		status.Error = err.Error()
+		return status
+	}
+	resp, err := s.client.Do(req)
+	if err != nil {
+		status.ProxyStatus = "unreachable"
+		status.Error = err.Error()
+		return status
+	}
+	defer resp.Body.Close()
+
+	status.Reachable = true
+	status.HTTPStatus = resp.StatusCode
+	var health claudeProxyHealthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		status.ProxyStatus = "error"
+		status.Error = err.Error()
+		return status
+	}
+	applyHealthResponse(&status, health)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		status.Reachable = false
+		if status.Error == "" {
+			status.Error = fmt.Sprintf("refresh returned status %d", resp.StatusCode)
+		}
+	}
+	return status
+}
+
+func baseClaudeProxyStatus(provider entity.Provider) ClaudeProxyStatus {
+	return ClaudeProxyStatus{
+		ProviderID: provider.ID,
+		Name:       provider.Name,
+		Slug:       provider.Slug,
+		Status:     provider.Status,
+		BaseURL:    provider.BaseURL,
+		CheckedAt:  time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+func applyHealthResponse(status *ClaudeProxyStatus, health claudeProxyHealthResponse) {
+	status.ProxyStatus = health.Status
+	status.TokenHours = health.TokenHours
+	status.CCVersion = health.CCVersion
+	status.SubscriptionType = health.SubscriptionType
+	status.RateLimitTier = health.RateLimitTier
+	status.Error = health.Error
 }
 
 func joinURL(base string, path string) string {

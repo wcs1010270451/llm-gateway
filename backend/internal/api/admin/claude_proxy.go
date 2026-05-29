@@ -30,3 +30,16 @@ func (h *Handler) ProbeClaudeProxy(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+func (h *Handler) RefreshClaudeProxy(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+	result, err := h.claude.Refresh(c.Request.Context(), id)
+	if err != nil {
+		handleServiceError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, result)
+}

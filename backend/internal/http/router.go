@@ -93,6 +93,7 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 			adminGroup.GET("/stats", adminHandler.GetStats)
 			adminGroup.GET("/claude-proxies", adminHandler.ListClaudeProxyStatus)
 			adminGroup.POST("/claude-proxies/:id/probe", adminHandler.ProbeClaudeProxy)
+			adminGroup.POST("/claude-proxies/:id/refresh", adminHandler.RefreshClaudeProxy)
 
 			adminGroup.GET("/providers", adminHandler.ListProviders)
 			adminGroup.POST("/providers", adminHandler.CreateProvider)

@@ -54,6 +54,10 @@ export interface ClaudeProxyProbeResult extends ClaudeProxyStatus {
   probe_ok: boolean;
 }
 
+export interface ClaudeProxyRefreshResult extends ClaudeProxyStatus {
+  refresh_ok: boolean;
+}
+
 export async function fetchAdminStats() {
   const response = await apiClient.get<AdminStats>("/api/admin/stats");
   return response.data;
@@ -66,6 +70,11 @@ export async function fetchClaudeProxyStatuses() {
 
 export async function probeClaudeProxy(id: number) {
   const response = await apiClient.post<ClaudeProxyProbeResult>(`/api/admin/claude-proxies/${id}/probe`);
+  return response.data;
+}
+
+export async function refreshClaudeProxyToken(id: number) {
+  const response = await apiClient.post<ClaudeProxyRefreshResult>(`/api/admin/claude-proxies/${id}/refresh`);
   return response.data;
 }
 
