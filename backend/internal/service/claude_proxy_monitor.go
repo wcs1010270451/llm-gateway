@@ -70,8 +70,8 @@ func (s *ClaudeProxyMonitorService) Probe(ctx context.Context, providerID int64)
 	if err != nil {
 		return ClaudeProxyProbeResult{}, err
 	}
-	if provider.AdapterType != "claude_code" {
-		return ClaudeProxyProbeResult{}, validationError("provider is not claude_code")
+	if !isClaudeProxyProvider(provider) {
+		return ClaudeProxyProbeResult{}, validationError("provider is not a claude proxy")
 	}
 
 	status := s.checkHealth(ctx, provider)
@@ -114,11 +114,15 @@ func (s *ClaudeProxyMonitorService) claudeCodeProviders(ctx context.Context) ([]
 	}
 	providers := make([]entity.Provider, 0)
 	for _, item := range items {
-		if item.AdapterType == "claude_code" {
+		if isClaudeProxyProvider(item) {
 			providers = append(providers, item)
 		}
 	}
 	return providers, nil
+}
+
+func isClaudeProxyProvider(provider entity.Provider) bool {
+	return provider.Slug == "claude_max_proxy"
 }
 
 func (s *ClaudeProxyMonitorService) checkHealth(ctx context.Context, provider entity.Provider) ClaudeProxyStatus {
