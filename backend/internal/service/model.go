@@ -53,6 +53,10 @@ func (s *ModelService) List(ctx context.Context) ([]entity.Model, error) {
 	return s.models.List(ctx)
 }
 
+func (s *ModelService) ListByFamily(ctx context.Context, family string) ([]entity.Model, error) {
+	return s.models.ListByFamily(ctx, strings.TrimSpace(family))
+}
+
 func (s *ModelService) ListPage(ctx context.Context, family string, page int, pageSize int) (ModelPage, error) {
 	page, pageSize = normalizePagination(page, pageSize)
 	items, total, err := s.models.ListPage(ctx, strings.TrimSpace(family), page, pageSize)

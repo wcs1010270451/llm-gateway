@@ -11,7 +11,7 @@ import (
 )
 
 func (h *Handler) ListModels(c *gin.Context) {
-	if c.Query("page") != "" || c.Query("page_size") != "" || c.Query("family") != "" {
+	if c.Query("page") != "" || c.Query("page_size") != "" {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
 		result, err := h.models.ListPage(c.Request.Context(), c.Query("family"), page, pageSize)
@@ -21,6 +21,20 @@ func (h *Handler) ListModels(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, result)
+		return
+	}
+
+	if c.Query("family") != "" {
+		items, err := h.models.ListByFamily(c.Request.Context(), c.Query("family"))
+		if err != nil {
+			apierror.Database(c, err)
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"items": items,
+			"total": len(items),
+		})
 		return
 	}
 

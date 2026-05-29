@@ -4,6 +4,7 @@ import { RequireRole } from "./components/AuthGuards";
 import { AdminLayout } from "./layouts/AdminLayout";
 import { PortalLayout } from "./layouts/PortalLayout";
 import { DashboardPage } from "./pages/DashboardPage";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModelsPage } from "./pages/ModelsPage";
 import { ModelDetailPage } from "./pages/ModelDetailPage";
@@ -16,15 +17,14 @@ import { PortalKeysPage } from "./pages/PortalKeysPage";
 import { UsersPage } from "./pages/UsersPage";
 
 const router = createBrowserRouter([
+  { path: "/", element: <LandingPage /> },
   { path: "/login", element: <LoginPage /> },
   {
-    path: "/",
     element: <RequireRole role="admin" />,
     children: [
       {
         element: <AdminLayout />,
         children: [
-          { index: true, element: <Navigate to="/dashboard" replace /> },
           { path: "dashboard", element: <DashboardPage /> },
           { path: "providers", element: <ProvidersPage /> },
           { path: "providers/:id", element: <ProviderDetailPage /> },

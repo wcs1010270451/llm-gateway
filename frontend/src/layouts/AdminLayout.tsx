@@ -3,7 +3,6 @@ import {
   BarChartOutlined,
   ClusterOutlined,
   DatabaseOutlined,
-  LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PartitionOutlined,
@@ -12,7 +11,8 @@ import {
 import { Button, ConfigProvider, Layout, Menu, Space, Typography } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router";
 
-import { useAuthStore } from "../store/authStore";
+import { AccountNav } from "../components/AccountNav";
+import { AppBrand } from "../components/AppBrand";
 import { useUIStore } from "../store/uiStore";
 
 const navItems = [
@@ -28,15 +28,9 @@ export function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { collapsed, setCollapsed } = useUIStore();
-  const { user, clearSession } = useAuthStore();
 
   const selectedKey = navItems.find((item) => location.pathname.startsWith(item.key))?.key ?? "/dashboard";
   const currentSection = navItems.find((item) => item.key === selectedKey)?.label ?? "概览";
-
-  function logout() {
-    clearSession();
-    navigate("/login", { replace: true });
-  }
 
   return (
     <ConfigProvider
@@ -65,15 +59,7 @@ export function AdminLayout() {
           跳到主要内容
         </a>
         <Layout.Sider width={248} collapsedWidth={76} collapsed={collapsed} className="admin-sider">
-          <div className="admin-brand">
-            <div className="admin-brand-mark">LG</div>
-            {!collapsed ? (
-              <div>
-                <Typography.Text className="admin-brand-title">LLM Gateway</Typography.Text>
-                <Typography.Text className="admin-brand-subtitle">Operations workspace</Typography.Text>
-              </div>
-            ) : null}
-          </div>
+          <AppBrand variant="admin" subtitle="Operations workspace" showText={!collapsed} />
           {!collapsed ? <Typography.Text className="admin-nav-label">管理功能</Typography.Text> : null}
           <Menu
             theme="light"
@@ -99,12 +85,7 @@ export function AdminLayout() {
                 <Typography.Text className="admin-header-title">{currentSection}</Typography.Text>
               </div>
             </Space>
-            <Space className="admin-account" size={12}>
-              <Typography.Text className="admin-email">{user?.email}</Typography.Text>
-              <Button type="text" icon={<LogoutOutlined />} onClick={logout} aria-label="退出登录">
-                退出
-              </Button>
-            </Space>
+            <AccountNav variant="admin" />
           </Layout.Header>
           <Layout.Content className="admin-content">
             <main id="admin-main" className="admin-main" tabIndex={-1}>

@@ -25,6 +25,16 @@ func (r *ModelRepository) List(ctx context.Context) ([]entity.Model, error) {
 	return items, err
 }
 
+func (r *ModelRepository) ListByFamily(ctx context.Context, family string) ([]entity.Model, error) {
+	var items []entity.Model
+	err := r.db.WithContext(ctx).
+		Preload("ActiveProviderModel.Provider").
+		Where("family = ?", family).
+		Order("id DESC").
+		Find(&items).Error
+	return items, err
+}
+
 func (r *ModelRepository) ListPage(ctx context.Context, family string, page int, pageSize int) ([]entity.Model, int64, error) {
 	query := r.db.WithContext(ctx).Model(&entity.Model{})
 	if family != "" {

@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -28,7 +29,7 @@ func (h *Handler) Messages(c *gin.Context) {
 		return
 	}
 
-	apiAuth, err := h.apiKeys.Authenticate(c.Request.Context(), c.GetHeader("x-api-key"))
+	apiAuth, err := h.apiKeys.Authenticate(c.Request.Context(), apiKeyFromRequest(c))
 	if err != nil {
 		handleAPIKeyError(c, err)
 		return
@@ -75,6 +76,17 @@ func (h *Handler) Messages(c *gin.Context) {
 	}
 
 	h.proxy.LogMessagesResult(c.Request.Context(), result, preview.Bytes(), copyErr)
+}
+
+func apiKeyFromRequest(c *gin.Context) string {
+	if value := strings.TrimSpace(c.GetHeader("x-api-key")); value != "" {
+		return value
+	}
+	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+		return strings.TrimSpace(authHeader[len("Bearer "):])
+	}
+	return ""
 }
 
 func handleAPIKeyError(c *gin.Context, err error) {

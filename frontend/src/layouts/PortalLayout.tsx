@@ -1,19 +1,14 @@
-import { KeyOutlined, LogoutOutlined } from "@ant-design/icons";
-import { Button, ConfigProvider, Layout, Space, Typography } from "antd";
+import { KeyOutlined } from "@ant-design/icons";
+import { Button, ConfigProvider, Layout } from "antd";
 import { Outlet, useLocation, useNavigate } from "react-router";
 
-import { useAuthStore } from "../store/authStore";
+import { AccountNav } from "../components/AccountNav";
+import { AppBrand } from "../components/AppBrand";
 
 export function PortalLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, clearSession } = useAuthStore();
   const keysActive = location.pathname.startsWith("/portal/keys");
-
-  function logout() {
-    clearSession();
-    navigate("/login", { replace: true });
-  }
 
   return (
     <ConfigProvider
@@ -36,15 +31,7 @@ export function PortalLayout() {
         </a>
         <header className="portal-header">
           <div className="portal-header-inner">
-            <button type="button" className="portal-brand" onClick={() => navigate("/portal/keys")} aria-label="LLM Gateway 门户首页">
-              <span className="portal-brand-mark" aria-hidden="true">
-                LG
-              </span>
-              <span>
-                <Typography.Text className="portal-brand-title">LLM Gateway</Typography.Text>
-                <Typography.Text className="portal-brand-subtitle">Access workspace</Typography.Text>
-              </span>
-            </button>
+            <AppBrand variant="portal" subtitle="Access workspace" />
             <nav className="portal-nav" aria-label="门户导航">
               <Button
                 type="text"
@@ -55,12 +42,7 @@ export function PortalLayout() {
                 访问凭据
               </Button>
             </nav>
-            <Space className="portal-account" size={12}>
-              <Typography.Text className="portal-email">{user?.email}</Typography.Text>
-              <Button className="portal-logout" type="text" icon={<LogoutOutlined />} onClick={logout} aria-label="退出登录">
-                退出
-              </Button>
-            </Space>
+            <AccountNav variant="portal" />
           </div>
         </header>
         <Layout.Content className="portal-content">

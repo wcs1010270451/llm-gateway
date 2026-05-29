@@ -1,9 +1,9 @@
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Modal, Select, Typography, message } from "antd";
-import { useState } from "react";
+import { Button, Card, Empty, Modal, Tabs, Typography, message } from "antd";
+import { useEffect, useState } from "react";
 
-import { createModel, deleteModel, fetchActiveModelFamilies, fetchModelFamilies, fetchModelPage, updateModel } from "../api/admin";
+import { createModel, deleteModel, fetchActiveModelFamilies, fetchModelFamilies, fetchModelsByFamily, updateModel } from "../api/admin";
 import { PageHeader } from "../components/PageHeader";
 import { ModelEditorDrawer } from "../features/models/ModelEditorDrawer";
 import { ModelTable } from "../features/models/ModelTable";
@@ -24,21 +24,33 @@ function buildModelInput(model: Model, status: Model["status"]): ModelInput {
 
 export function ModelsPage() {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(1);
   const [selectedFamily, setSelectedFamily] = useState<string>();
+  const familiesQuery = useQuery({ queryKey: ["model-families"], queryFn: fetchModelFamilies });
+  const activeFamiliesQuery = useQuery({ queryKey: ["model-families", "active"], queryFn: fetchActiveModelFamilies });
+  const families = familiesQuery.data?.items ?? [];
+  const activeFamily = selectedFamily ?? families[0]?.name;
   const query = useQuery({
-    queryKey: ["models", "page", page, selectedFamily],
-    queryFn: () => fetchModelPage({ page, page_size: 10, family: selectedFamily }),
+    queryKey: ["models", "family", activeFamily],
+    queryFn: () => fetchModelsByFamily(activeFamily ?? ""),
+    enabled: Boolean(activeFamily),
   });
-  const familiesQuery = useQuery({ queryKey: ["model-families", "active"], queryFn: fetchActiveModelFamilies });
-  const filterFamiliesQuery = useQuery({ queryKey: ["model-families"], queryFn: fetchModelFamilies });
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const models = query.data?.items ?? [];
-  const familyOptions = (filterFamiliesQuery.data?.items ?? []).map((family) => ({
-    label: family.display_name ? `${family.display_name} (${family.name})` : family.name,
-    value: family.name,
+  const familyTabs = families.map((family) => ({
+    key: family.name,
+    label: family.display_name || family.name,
   }));
+
+  useEffect(() => {
+    if (!families.length) {
+      setSelectedFamily(undefined);
+      return;
+    }
+    if (!activeFamily || !families.some((family) => family.name === activeFamily)) {
+      setSelectedFamily(families[0].name);
+    }
+  }, [activeFamily, families]);
 
   const saveMutation = useMutation({
     mutationFn: createModel,
@@ -98,11 +110,11 @@ export function ModelsPage() {
         description="维护平台对外提供的模型能力，并手动选择当前上游供应商模型。"
         actions={
           <>
-            <Button icon={<ReloadOutlined />} onClick={() => query.refetch()} aria-label="刷新模型列表" />
+            <Button icon={<ReloadOutlined />} disabled={!activeFamily} onClick={() => query.refetch()} aria-label="刷新模型列表" />
             <Button
               type="primary"
               icon={<PlusOutlined />}
-              disabled={(familiesQuery.data?.items ?? []).length === 0}
+              disabled={(activeFamiliesQuery.data?.items ?? []).length === 0}
               onClick={() => {
                 setDrawerOpen(true);
               }}
@@ -113,43 +125,39 @@ export function ModelsPage() {
         }
       />
       <Card className="admin-panel admin-table-panel">
-        <div className="admin-filter-bar" aria-label="模型筛选">
-          <div>
-            <Typography.Text className="admin-filter-label">模型系列</Typography.Text>
-            <Select
-              className="admin-filter-select"
-              value={selectedFamily}
-              options={familyOptions}
-              allowClear
-              showSearch
-              optionFilterProp="label"
-              placeholder="全部系列"
-              onChange={(value) => {
-                setSelectedFamily(value);
-                setPage(1);
-              }}
-              aria-label="按模型系列筛选"
-            />
-          </div>
-          <Typography.Text className="admin-filter-count">
-            共 {query.data?.total ?? 0} 个模型
-          </Typography.Text>
+        <div className="admin-model-tabs-bar" aria-label="模型系列">
+          <Tabs
+            className="admin-model-tabs"
+            activeKey={activeFamily}
+            items={familyTabs}
+            onChange={setSelectedFamily}
+            tabBarGutter={8}
+          />
+          <Typography.Text className="admin-filter-count">当前系列 {query.data?.total ?? 0} 个模型</Typography.Text>
         </div>
-        <ModelTable
-          data={models}
-          loading={query.isLoading}
-          page={query.data?.page ?? page}
-          pageSize={query.data?.page_size ?? 10}
-          total={query.data?.total ?? 0}
-          togglingModelId={toggleStatusMutation.isPending ? toggleStatusMutation.variables?.id : undefined}
-          onDelete={confirmDelete}
-          onToggleStatus={toggleStatus}
-          onPageChange={setPage}
-        />
+        {familiesQuery.isLoading ? (
+          <ModelTable
+            data={[]}
+            loading
+            togglingModelId={toggleStatusMutation.isPending ? toggleStatusMutation.variables?.id : undefined}
+            onDelete={confirmDelete}
+            onToggleStatus={toggleStatus}
+          />
+        ) : families.length === 0 ? (
+          <Empty className="admin-empty" description="暂无可用模型系列，请先创建并启用模型系列" />
+        ) : (
+          <ModelTable
+            data={models}
+            loading={query.isLoading}
+            togglingModelId={toggleStatusMutation.isPending ? toggleStatusMutation.variables?.id : undefined}
+            onDelete={confirmDelete}
+            onToggleStatus={toggleStatus}
+          />
+        )}
       </Card>
       <ModelEditorDrawer
         open={drawerOpen}
-        families={familiesQuery.data?.items ?? []}
+        families={activeFamiliesQuery.data?.items ?? []}
         submitting={saveMutation.isPending}
         onClose={() => {
           setDrawerOpen(false);

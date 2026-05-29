@@ -91,6 +91,11 @@ export async function fetchModels() {
   return response.data;
 }
 
+export async function fetchModelsByFamily(family: string) {
+  const response = await apiClient.get<ListResponse<Model>>("/api/admin/models", { params: { family } });
+  return response.data;
+}
+
 export async function fetchModelPage(params: { page: number; page_size: number; family?: string }) {
   const response = await apiClient.get<PageResponse<Model>>("/api/admin/models", { params });
   return response.data;

@@ -9,25 +9,17 @@ import { formatPricingAmount, pricingJSONToFields } from "../../utils/pricing";
 interface ModelTableProps {
   data: Model[];
   loading: boolean;
-  page: number;
-  pageSize: number;
-  total: number;
   togglingModelId?: number;
   onDelete: (model: Model) => void;
   onToggleStatus: (model: Model) => void;
-  onPageChange: (page: number) => void;
 }
 
 export function ModelTable({
   data,
   loading,
-  page,
-  pageSize,
-  total,
   togglingModelId,
   onDelete,
   onToggleStatus,
-  onPageChange,
 }: ModelTableProps) {
   const navigate = useNavigate();
 
@@ -143,13 +135,7 @@ export function ModelTable({
       columns={columns}
       dataSource={data}
       loading={loading}
-      pagination={{
-        current: page,
-        pageSize,
-        total,
-        showSizeChanger: false,
-      }}
-      onChange={(pagination) => onPageChange(pagination.current ?? 1)}
+      pagination={false}
       scroll={{ x: "max-content" }}
       onRow={(record) => ({
         className: "admin-table-row-action",
