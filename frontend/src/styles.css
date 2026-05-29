@@ -947,6 +947,43 @@ body {
   padding: 56px 0;
 }
 
+.admin-status-alert {
+  margin-bottom: 18px;
+}
+
+.admin-claude-status {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-claude-status .ant-statistic,
+.admin-claude-status-meta {
+  min-height: 86px;
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-subtle);
+}
+
+.admin-claude-status .ant-statistic-title,
+.admin-claude-status-meta .ant-typography-secondary {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-claude-status .ant-statistic-content {
+  color: var(--admin-ink);
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.admin-claude-status-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .admin-table .ant-table {
   background: transparent;
   color: var(--admin-ink);
@@ -1609,6 +1646,10 @@ body {
 
   .admin-model-tabs {
     width: 100%;
+  }
+
+  .admin-claude-status {
+    grid-template-columns: 1fr;
   }
 
   .admin-pricing-band,

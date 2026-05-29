@@ -1,15 +1,17 @@
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Card, Descriptions, Modal, Space, message } from "antd";
+import { Alert, Button, Card, Descriptions, Modal, Space, Statistic, Tag, Typography, message } from "antd";
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import {
   createProviderModelRoute,
   deleteProviderModelRoute,
+  fetchClaudeProxyStatuses,
   fetchModels,
   fetchProvider,
   fetchProviderModelRoutes,
+  probeClaudeProxy,
   setActiveProviderModel,
   updateProviderModelRoute,
 } from "../api/admin";
@@ -21,6 +23,27 @@ import {
 } from "../features/providers/ProviderModelRouteDrawer";
 import { ProviderModelRouteTable } from "../features/providers/ProviderModelRouteTable";
 import type { ProviderModel } from "../types";
+
+function formatDateTime(value?: string) {
+  return value ? new Date(value).toLocaleString() : "-";
+}
+
+function formatTokenHours(value?: number) {
+  if (value === undefined) {
+    return "-";
+  }
+  if (value < 0) {
+    return "已过期";
+  }
+  return `${value.toFixed(1)} 小时`;
+}
+
+function estimateExpiresAt(checkedAt?: string, tokenHours?: number) {
+  if (!checkedAt || tokenHours === undefined) {
+    return "-";
+  }
+  return new Date(new Date(checkedAt).getTime() + tokenHours * 60 * 60 * 1000).toLocaleString();
+}
 
 export function ProviderDetailPage() {
   const { id = "" } = useParams();
@@ -41,6 +64,13 @@ export function ProviderDetailPage() {
     enabled: id !== "",
   });
   const modelsQuery = useQuery({ queryKey: ["models"], queryFn: fetchModels });
+  const isClaudeMaxProxy = providerQuery.data?.slug === "claude_max_proxy";
+  const claudeStatusQuery = useQuery({
+    queryKey: ["claude-proxies"],
+    queryFn: fetchClaudeProxyStatuses,
+    enabled: Boolean(isClaudeMaxProxy),
+  });
+  const claudeStatus = claudeStatusQuery.data?.items.find((item) => item.provider_id === providerId);
 
   const saveMutation = useMutation({
     mutationFn: (payload: ProviderModelRouteSubmit) =>
@@ -83,6 +113,19 @@ export function ProviderDetailPage() {
     onError: (error) => message.error(error.message),
   });
 
+  const probeMutation = useMutation({
+    mutationFn: () => probeClaudeProxy(providerId),
+    onSuccess: async (result) => {
+      await queryClient.invalidateQueries({ queryKey: ["claude-proxies"] });
+      if (result.probe_ok) {
+        message.success("Claude 代理探测成功");
+      } else {
+        message.error(result.error || "Claude 代理探测失败");
+      }
+    },
+    onError: (error) => message.error(error.message),
+  });
+
   function confirmDelete(providerModel: ProviderModel) {
     Modal.confirm({
       title: "删除上游模型",
@@ -112,6 +155,9 @@ export function ProviderDetailPage() {
                 providerQuery.refetch();
                 routesQuery.refetch();
                 modelsQuery.refetch();
+                if (isClaudeMaxProxy) {
+                  claudeStatusQuery.refetch();
+                }
               }}
             />
             <Button
@@ -146,6 +192,42 @@ export function ProviderDetailPage() {
               {provider.description || "-"}
             </Descriptions.Item>
           </Descriptions>
+        </Card>
+      ) : null}
+
+      {provider && isClaudeMaxProxy ? (
+        <Card
+          className="admin-panel"
+          title="Claude 登录状态"
+          extra={
+            <Space>
+              <Button size="small" onClick={() => claudeStatusQuery.refetch()} loading={claudeStatusQuery.isFetching}>
+                刷新状态
+              </Button>
+              <Button size="small" type="primary" onClick={() => probeMutation.mutate()} loading={probeMutation.isPending}>
+                探测登录
+              </Button>
+            </Space>
+          }
+        >
+          {claudeStatus?.error ? <Alert className="admin-status-alert" type={claudeStatus.reachable ? "warning" : "error"} message={claudeStatus.error} showIcon /> : null}
+          <div className="admin-claude-status">
+            <Statistic title="Proxy 状态" value={claudeStatus?.proxy_status ?? "-"} />
+            <Statistic title="Token 剩余" value={formatTokenHours(claudeStatus?.token_hours)} />
+            <Statistic title="预计过期时间" value={estimateExpiresAt(claudeStatus?.checked_at, claudeStatus?.token_hours)} />
+            <div className="admin-claude-status-meta">
+              <Typography.Text type="secondary">可达性</Typography.Text>
+              <Tag color={claudeStatus?.reachable ? "success" : "error"}>{claudeStatus?.reachable ? "可达" : "不可达"}</Tag>
+            </div>
+            <div className="admin-claude-status-meta">
+              <Typography.Text type="secondary">Claude Code</Typography.Text>
+              <Typography.Text>{claudeStatus?.cc_version || "-"}</Typography.Text>
+            </div>
+            <div className="admin-claude-status-meta">
+              <Typography.Text type="secondary">检查时间</Typography.Text>
+              <Typography.Text>{formatDateTime(claudeStatus?.checked_at)}</Typography.Text>
+            </div>
+          </div>
         </Card>
       ) : null}
 
