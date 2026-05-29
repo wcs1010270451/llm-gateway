@@ -33,8 +33,37 @@ export interface AdminStats {
   top_models: KeyModelUsageStat[];
 }
 
+export interface ClaudeProxyStatus {
+  provider_id: number;
+  name: string;
+  slug: string;
+  status: Provider["status"];
+  base_url: string;
+  reachable: boolean;
+  proxy_status: string;
+  token_hours?: number;
+  cc_version?: string;
+  http_status?: number;
+  error?: string;
+  checked_at: string;
+}
+
+export interface ClaudeProxyProbeResult extends ClaudeProxyStatus {
+  probe_ok: boolean;
+}
+
 export async function fetchAdminStats() {
   const response = await apiClient.get<AdminStats>("/api/admin/stats");
+  return response.data;
+}
+
+export async function fetchClaudeProxyStatuses() {
+  const response = await apiClient.get<ListResponse<ClaudeProxyStatus>>("/api/admin/claude-proxies");
+  return response.data;
+}
+
+export async function probeClaudeProxy(id: number) {
+  const response = await apiClient.post<ClaudeProxyProbeResult>(`/api/admin/claude-proxies/${id}/probe`);
   return response.data;
 }
 

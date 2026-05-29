@@ -42,12 +42,13 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	requestLogService := service.NewRequestLogService(requestLogRepo)
 	adminStatsService := service.NewAdminStatsService(providerRepo, modelRepo, requestLogRepo)
 	authService := service.NewAuthService(userRepo, cfg.AuthTokenSecret)
+	claudeProxyMonitorService := service.NewClaudeProxyMonitorService(providerService)
 	anthropicProxyService := service.NewAnthropicProxyService(routingRepo, requestLogRepo, providerKeyCipher)
 	openAIProxyService := service.NewOpenAIProxyService(routingRepo, requestLogRepo, modelRepo, providerKeyCipher)
 	geminiProxyService := service.NewGeminiProxyService(routingRepo, requestLogRepo, providerKeyCipher)
 	userConsoleService := service.NewUserConsoleService(apiKeyRepo, modelRepo, requestLogRepo, anthropicProxyService, openAIProxyService, geminiProxyService)
 	systemHandler := system.NewHandler(db)
-	adminHandler := admin.NewHandler(providerService, modelService, modelFamilyService, userService, requestLogService, adminStatsService)
+	adminHandler := admin.NewHandler(providerService, modelService, modelFamilyService, userService, requestLogService, adminStatsService, claudeProxyMonitorService)
 	authHandler := authapi.NewHandler(authService)
 	meHandler := me.NewHandler(apiKeyService, userConsoleService)
 	anthropicHandler := anthropic.NewHandler(anthropicProxyService, apiKeyService)
@@ -90,6 +91,8 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 		adminGroup := api.Group("/admin", requireRole(authService, "admin"))
 		{
 			adminGroup.GET("/stats", adminHandler.GetStats)
+			adminGroup.GET("/claude-proxies", adminHandler.ListClaudeProxyStatus)
+			adminGroup.POST("/claude-proxies/:id/probe", adminHandler.ProbeClaudeProxy)
 
 			adminGroup.GET("/providers", adminHandler.ListProviders)
 			adminGroup.POST("/providers", adminHandler.CreateProvider)

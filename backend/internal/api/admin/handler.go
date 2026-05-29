@@ -18,9 +18,10 @@ type Handler struct {
 	users     *service.UserService
 	logs      *service.RequestLogService
 	stats     *service.AdminStatsService
+	claude    *service.ClaudeProxyMonitorService
 }
 
-func NewHandler(providers *service.ProviderService, models *service.ModelService, families *service.ModelFamilyService, users *service.UserService, logs *service.RequestLogService, stats *service.AdminStatsService) *Handler {
+func NewHandler(providers *service.ProviderService, models *service.ModelService, families *service.ModelFamilyService, users *service.UserService, logs *service.RequestLogService, stats *service.AdminStatsService, claude *service.ClaudeProxyMonitorService) *Handler {
 	return &Handler{
 		providers: providers,
 		models:    models,
@@ -28,6 +29,7 @@ func NewHandler(providers *service.ProviderService, models *service.ModelService
 		users:     users,
 		logs:      logs,
 		stats:     stats,
+		claude:    claude,
 	}
 }
 
