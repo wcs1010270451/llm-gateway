@@ -189,6 +189,7 @@ func (s *OpenAIProxyService) LogChatCompletionsResult(ctx context.Context, resul
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, "chat_completions", statusCode, promptTokens, completionTokens, totalTokens)
 
 	logItem := buildRequestLog(RequestLogInput{
 		Route:            result.Route,

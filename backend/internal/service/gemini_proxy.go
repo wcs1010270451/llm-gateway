@@ -297,6 +297,7 @@ func (s *GeminiProxyService) LogGenerateContentResult(ctx context.Context, resul
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, result.RequestType, statusCode, promptTokens, completionTokens, totalTokens)
 
 	logItem := buildRequestLog(RequestLogInput{
 		Route:            result.Route,

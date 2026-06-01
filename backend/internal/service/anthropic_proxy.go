@@ -188,6 +188,7 @@ func (s *AnthropicProxyService) LogMessagesResult(ctx context.Context, result *A
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, "messages", statusCode, promptTokens, completionTokens, totalTokens)
 
 	logItem := buildRequestLog(RequestLogInput{
 		Route:            result.Route,
