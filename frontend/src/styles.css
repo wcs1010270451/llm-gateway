@@ -984,6 +984,82 @@ body {
   gap: 12px;
 }
 
+.admin-provider-usage-panel .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.admin-provider-usage-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-subtle);
+}
+
+.admin-provider-usage-summary .ant-statistic {
+  min-height: 86px;
+  padding: 15px 18px;
+  border-right: 1px solid var(--admin-border);
+}
+
+.admin-provider-usage-summary .ant-statistic:last-child {
+  border-right: 0;
+}
+
+.admin-provider-usage-summary .ant-statistic-title {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-provider-usage-summary .ant-statistic-content {
+  color: var(--admin-ink);
+  font-size: 20px;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-provider-usage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 18px;
+}
+
+.admin-provider-chart {
+  min-width: 0;
+  padding: 18px 18px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(234, 245, 251, 0.58), rgba(252, 254, 255, 0.9));
+}
+
+.admin-provider-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.admin-provider-chart-head .ant-typography-secondary {
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.admin-chart-empty {
+  display: flex;
+  min-height: 260px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.admin-provider-usage-table {
+  border-top: 1px solid var(--admin-border);
+}
+
 .admin-table .ant-table {
   background: transparent;
   color: var(--admin-ink);
@@ -1650,6 +1726,20 @@ body {
 
   .admin-claude-status {
     grid-template-columns: 1fr;
+  }
+
+  .admin-provider-usage-summary,
+  .admin-provider-usage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-provider-usage-summary .ant-statistic {
+    border-right: 0;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .admin-provider-usage-summary .ant-statistic:last-child {
+    border-bottom: 0;
   }
 
   .admin-pricing-band,

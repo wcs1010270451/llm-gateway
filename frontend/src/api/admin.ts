@@ -58,6 +58,40 @@ export interface ClaudeProxyRefreshResult extends ClaudeProxyStatus {
   refresh_ok: boolean;
 }
 
+export interface ProviderUsageStats {
+  window: "24h" | "7d" | "30d";
+  granularity: "hour" | "day";
+  since: string;
+  summary: {
+    request_count: number;
+    success_count: number;
+    active_user_count: number;
+    active_key_count: number;
+    total_tokens: number;
+    average_latency_ms: number;
+    estimated_cost: number;
+  };
+  trend: Array<{
+    period: string;
+    request_count: number;
+    total_tokens: number;
+    estimated_cost: number;
+  }>;
+  models: Array<{
+    provider_model_id?: number;
+    upstream_model: string;
+    public_model_name: string;
+    request_count: number;
+    success_count: number;
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+    estimated_cost: number;
+    average_latency_ms: number;
+    last_used_at?: string;
+  }>;
+}
+
 export async function fetchAdminStats() {
   const response = await apiClient.get<AdminStats>("/api/admin/stats");
   return response.data;
@@ -92,6 +126,16 @@ export async function fetchProviderModelRoutes(providerId: string) {
   const response = await apiClient.get<ListResponse<ProviderModel>>(
     `/api/admin/providers/${providerId}/provider-models`,
   );
+  return response.data;
+}
+
+export async function fetchProviderUsageStats(
+  providerId: string,
+  params: { window: "24h" | "7d" | "30d"; granularity?: "hour" | "day" },
+) {
+  const response = await apiClient.get<ProviderUsageStats>(`/api/admin/providers/${providerId}/usage-stats`, {
+    params,
+  });
   return response.data;
 }
 

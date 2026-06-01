@@ -57,3 +57,24 @@ type RequestUsageSummary struct {
 	AverageLatencyMS float64 `json:"average_latency_ms"`
 	EstimatedCost    float64 `json:"estimated_cost"`
 }
+
+type ProviderUsagePoint struct {
+	Period        time.Time `json:"period"`
+	RequestCount  int64     `json:"request_count"`
+	TotalTokens   int64     `json:"total_tokens"`
+	EstimatedCost float64   `json:"estimated_cost"`
+}
+
+type ProviderModelUsageStat struct {
+	ProviderModelID  *int64     `json:"provider_model_id,omitempty"`
+	UpstreamModel    string     `json:"upstream_model"`
+	PublicModelName  string     `json:"public_model_name"`
+	RequestCount     int64      `json:"request_count"`
+	SuccessCount     int64      `json:"success_count"`
+	PromptTokens     int64      `json:"prompt_tokens"`
+	CompletionTokens int64      `json:"completion_tokens"`
+	TotalTokens      int64      `json:"total_tokens"`
+	EstimatedCost    float64    `json:"estimated_cost"`
+	AverageLatencyMS float64    `json:"average_latency_ms"`
+	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
+}

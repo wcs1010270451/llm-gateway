@@ -55,6 +55,26 @@ func (h *Handler) ListProviderModelsByProvider(c *gin.Context) {
 	})
 }
 
+func (h *Handler) GetProviderUsageStats(c *gin.Context) {
+	id, ok := parseID(c, "id")
+	if !ok {
+		return
+	}
+
+	if _, err := h.providers.Get(c.Request.Context(), id); err != nil {
+		handleServiceError(c, err)
+		return
+	}
+
+	stats, err := h.logs.ProviderUsageStats(c.Request.Context(), id, c.Query("window"), c.Query("granularity"))
+	if err != nil {
+		apierror.Database(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
 func (h *Handler) CreateProviderModelForProvider(c *gin.Context) {
 	id, ok := parseID(c, "id")
 	if !ok {

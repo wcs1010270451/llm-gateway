@@ -98,6 +98,7 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 			adminGroup.GET("/providers", adminHandler.ListProviders)
 			adminGroup.POST("/providers", adminHandler.CreateProvider)
 			adminGroup.GET("/providers/:id", adminHandler.GetProvider)
+			adminGroup.GET("/providers/:id/usage-stats", adminHandler.GetProviderUsageStats)
 			adminGroup.GET("/providers/:id/provider-models", adminHandler.ListProviderModelsByProvider)
 			adminGroup.POST("/providers/:id/provider-models", adminHandler.CreateProviderModelForProvider)
 			adminGroup.PUT("/providers/:id/provider-models/:providerModelID", adminHandler.UpdateProviderModelForProvider)
