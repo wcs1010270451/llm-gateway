@@ -6,8 +6,8 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   Bar,
-  BarChart,
   CartesianGrid,
+  ComposedChart,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -84,6 +84,16 @@ function formatChartPeriod(value: string, granularity?: "hour" | "day") {
     return `${date.getMonth() + 1}/${date.getDate()}`;
   }
   return `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:00`;
+}
+
+function formatChartValue(value: unknown, name: unknown): [string, string] {
+  if (name === "estimated_cost") {
+    return [formatUSD(Number(value)), "费用"];
+  }
+  if (name === "total_tokens") {
+    return [formatInteger(Number(value)), "Token"];
+  }
+  return [String(value), String(name)];
 }
 
 export function ProviderDetailPage() {
@@ -340,7 +350,7 @@ export function ProviderDetailPage() {
         <div className="admin-provider-usage-grid">
           <section className="admin-provider-chart">
             <div className="admin-provider-chart-head">
-              <Typography.Text strong>总消耗趋势</Typography.Text>
+              <Typography.Text strong>Token 与费用趋势</Typography.Text>
               <Typography.Text type="secondary">{usageGranularity === "hour" ? "按小时" : "按天"}</Typography.Text>
             </div>
             {trendData.length > 0 ? (
@@ -348,9 +358,11 @@ export function ProviderDetailPage() {
                 <LineChart data={trendData} margin={{ top: 10, right: 18, bottom: 6, left: 0 }}>
                   <CartesianGrid stroke="#D9E6EC" strokeDasharray="4 4" vertical={false} />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
-                  <Tooltip formatter={(value) => formatUSD(Number(value))} labelStyle={{ color: "#223842" }} />
-                  <Line type="monotone" dataKey="estimated_cost" stroke="#237BB2" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                  <YAxis yAxisId="tokens" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => formatInteger(Number(value))} />
+                  <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${Number(value).toFixed(4)}`} />
+                  <Tooltip formatter={formatChartValue} labelStyle={{ color: "#223842" }} />
+                  <Line yAxisId="tokens" type="monotone" dataKey="total_tokens" stroke="#237BB2" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
+                  <Line yAxisId="cost" type="monotone" dataKey="estimated_cost" stroke="#8C7AC8" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
@@ -360,18 +372,20 @@ export function ProviderDetailPage() {
 
           <section className="admin-provider-chart">
             <div className="admin-provider-chart-head">
-              <Typography.Text strong>模型消耗排行</Typography.Text>
+              <Typography.Text strong>模型 Token 与费用排行</Typography.Text>
               <Typography.Text type="secondary">Top 8</Typography.Text>
             </div>
             {modelCostData.length > 0 ? (
               <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={modelCostData} margin={{ top: 10, right: 16, bottom: 6, left: 0 }}>
+                <ComposedChart data={modelCostData} margin={{ top: 10, right: 16, bottom: 6, left: 0 }}>
                   <CartesianGrid stroke="#D9E6EC" strokeDasharray="4 4" vertical={false} />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} interval={0} />
-                  <YAxis tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${value}`} />
-                  <Tooltip formatter={(value) => formatUSD(Number(value))} labelStyle={{ color: "#223842" }} />
-                  <Bar dataKey="estimated_cost" fill="#6FAECD" radius={[8, 8, 0, 0]} />
-                </BarChart>
+                  <YAxis yAxisId="tokens" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => formatInteger(Number(value))} />
+                  <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${Number(value).toFixed(4)}`} />
+                  <Tooltip formatter={formatChartValue} labelStyle={{ color: "#223842" }} />
+                  <Bar yAxisId="tokens" dataKey="total_tokens" fill="#6FAECD" radius={[8, 8, 0, 0]} />
+                  <Line yAxisId="cost" type="monotone" dataKey="estimated_cost" stroke="#8C7AC8" strokeWidth={2} dot={{ r: 3 }} />
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <Empty className="admin-chart-empty" description="当前时间范围暂无模型消耗" />
