@@ -212,10 +212,13 @@ func (w flushWriter) Write(data []byte) (int, error) {
 
 type limitedBuffer struct {
 	data  []byte
+	tail  []byte
 	limit int
+	total int
 }
 
 func (b *limitedBuffer) Write(data []byte) (int, error) {
+	b.total += len(data)
 	if len(b.data) < b.limit {
 		remaining := b.limit - len(b.data)
 		if len(data) > remaining {
@@ -224,9 +227,20 @@ func (b *limitedBuffer) Write(data []byte) (int, error) {
 			b.data = append(b.data, data...)
 		}
 	}
+	b.tail = append(b.tail, data...)
+	if len(b.tail) > b.limit {
+		b.tail = b.tail[len(b.tail)-b.limit:]
+	}
 	return len(data), nil
 }
 
 func (b *limitedBuffer) Bytes() []byte {
-	return b.data
+	if b.total <= b.limit || len(b.tail) == 0 {
+		return b.data
+	}
+	result := make([]byte, 0, len(b.data)+len(b.tail)+2)
+	result = append(result, b.data...)
+	result = append(result, '\n', '\n')
+	result = append(result, b.tail...)
+	return result
 }

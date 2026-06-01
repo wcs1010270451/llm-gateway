@@ -117,6 +117,9 @@ func (s *OpenAIProxyService) OpenChatCompletions(ctx context.Context, input Open
 
 	// 只重写 model 字段，其余 OpenAI-compatible 参数透传，保留供应商兼容扩展能力。
 	payload["model"] = route.ProviderModel.UpstreamModel
+	if stream {
+		ensureOpenAIStreamUsage(payload)
+	}
 	upstreamBody, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -216,20 +219,64 @@ func (s *OpenAIProxyService) writeLog(ctx context.Context, item *entity.RequestL
 	return s.logs.Create(ctx, item)
 }
 
+func ensureOpenAIStreamUsage(payload map[string]any) {
+	streamOptions, _ := payload["stream_options"].(map[string]any)
+	if streamOptions == nil {
+		streamOptions = make(map[string]any)
+	}
+	streamOptions["include_usage"] = true
+	payload["stream_options"] = streamOptions
+}
+
 func extractOpenAIUsage(body []byte) (int, int, int) {
+	usage := extractOpenAIUsageFromJSON(body)
+	if usage.total > 0 {
+		return usage.prompt, usage.completion, usage.total
+	}
+
+	for _, event := range bytes.Split(body, []byte("\n\n")) {
+		for _, line := range bytes.Split(event, []byte("\n")) {
+			line = bytes.TrimSpace(line)
+			if !bytes.HasPrefix(line, []byte("data:")) {
+				continue
+			}
+			raw := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+			if len(raw) == 0 || bytes.Equal(raw, []byte("[DONE]")) {
+				continue
+			}
+			next := extractOpenAIUsageFromJSON(raw)
+			if next.total > 0 {
+				usage = next
+			}
+		}
+	}
+	return usage.prompt, usage.completion, usage.total
+}
+
+type openAIUsage struct {
+	prompt     int
+	completion int
+	total      int
+}
+
+func extractOpenAIUsageFromJSON(body []byte) openAIUsage {
 	var payload struct {
-		Usage struct {
+		Usage *struct {
 			PromptTokens     int `json:"prompt_tokens"`
 			CompletionTokens int `json:"completion_tokens"`
 			TotalTokens      int `json:"total_tokens"`
 		} `json:"usage"`
 	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return 0, 0, 0
+	if err := json.Unmarshal(body, &payload); err != nil || payload.Usage == nil {
+		return openAIUsage{}
 	}
-	totalTokens := payload.Usage.TotalTokens
-	if totalTokens == 0 {
-		totalTokens = payload.Usage.PromptTokens + payload.Usage.CompletionTokens
+	total := payload.Usage.TotalTokens
+	if total == 0 {
+		total = payload.Usage.PromptTokens + payload.Usage.CompletionTokens
 	}
-	return payload.Usage.PromptTokens, payload.Usage.CompletionTokens, totalTokens
+	return openAIUsage{
+		prompt:     payload.Usage.PromptTokens,
+		completion: payload.Usage.CompletionTokens,
+		total:      total,
+	}
 }

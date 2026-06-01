@@ -314,16 +314,64 @@ func mustJSON(value any) datatypes.JSON {
 }
 
 func extractAnthropicUsage(body []byte) (int, int) {
+	usage := extractAnthropicUsageFromJSON(body)
+	if usage.input > 0 || usage.output > 0 {
+		return usage.input, usage.output
+	}
+
+	for _, event := range bytes.Split(body, []byte("\n\n")) {
+		for _, line := range bytes.Split(event, []byte("\n")) {
+			line = bytes.TrimSpace(line)
+			if !bytes.HasPrefix(line, []byte("data:")) {
+				continue
+			}
+			raw := bytes.TrimSpace(bytes.TrimPrefix(line, []byte("data:")))
+			if len(raw) == 0 || bytes.Equal(raw, []byte("[DONE]")) {
+				continue
+			}
+			next := extractAnthropicUsageFromJSON(raw)
+			if next.input > 0 {
+				usage.input = next.input
+			}
+			if next.output > 0 {
+				usage.output = next.output
+			}
+		}
+	}
+	return usage.input, usage.output
+}
+
+type anthropicUsage struct {
+	input  int
+	output int
+}
+
+func extractAnthropicUsageFromJSON(body []byte) anthropicUsage {
 	var payload struct {
-		Usage struct {
+		Usage *struct {
 			InputTokens  int `json:"input_tokens"`
 			OutputTokens int `json:"output_tokens"`
 		} `json:"usage"`
+		Message *struct {
+			Usage *struct {
+				InputTokens  int `json:"input_tokens"`
+				OutputTokens int `json:"output_tokens"`
+			} `json:"usage"`
+		} `json:"message"`
 	}
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return 0, 0
+	if err := json.Unmarshal(body, &payload); err != nil || payload.Usage == nil {
+		if payload.Message == nil || payload.Message.Usage == nil {
+			return anthropicUsage{}
+		}
+		return anthropicUsage{
+			input:  payload.Message.Usage.InputTokens,
+			output: payload.Message.Usage.OutputTokens,
+		}
 	}
-	return payload.Usage.InputTokens, payload.Usage.OutputTokens
+	return anthropicUsage{
+		input:  payload.Usage.InputTokens,
+		output: payload.Usage.OutputTokens,
+	}
 }
 
 func estimateCost(promptTokens int, completionTokens int, providerModel entity.ProviderModel) float64 {
