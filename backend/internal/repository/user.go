@@ -24,6 +24,18 @@ func (r *UserRepository) List(ctx context.Context) ([]entity.User, error) {
 	return items, err
 }
 
+func (r *UserRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entity.User{}).Count(&count).Error
+	return count, err
+}
+
+func (r *UserRepository) CountByStatus(ctx context.Context, status string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entity.User{}).Where("status = ?", status).Count(&count).Error
+	return count, err
+}
+
 func (r *UserRepository) Get(ctx context.Context, id int64) (entity.User, error) {
 	var item entity.User
 	err := r.db.WithContext(ctx).First(&item, id).Error

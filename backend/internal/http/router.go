@@ -40,7 +40,7 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	userService := service.NewUserService(userRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, providerKeyCipher)
 	requestLogService := service.NewRequestLogService(requestLogRepo)
-	adminStatsService := service.NewAdminStatsService(providerRepo, modelRepo, requestLogRepo)
+	adminStatsService := service.NewAdminStatsService(providerRepo, modelRepo, requestLogRepo, userRepo, apiKeyRepo)
 	authService := service.NewAuthService(userRepo, cfg.AuthTokenSecret)
 	claudeProxyMonitorService := service.NewClaudeProxyMonitorService(providerService)
 	anthropicProxyService := service.NewAnthropicProxyService(routingRepo, requestLogRepo, providerKeyCipher)

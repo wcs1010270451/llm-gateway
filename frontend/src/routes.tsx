@@ -6,7 +6,6 @@ import { PortalLayout } from "./layouts/PortalLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
-import { ModelsPage } from "./pages/ModelsPage";
 import { ModelDetailPage } from "./pages/ModelDetailPage";
 import { ModelFamiliesPage } from "./pages/ModelFamiliesPage";
 import { ProviderDetailPage } from "./pages/ProviderDetailPage";
@@ -28,8 +27,8 @@ const router = createBrowserRouter([
           { path: "dashboard", element: <DashboardPage /> },
           { path: "providers", element: <ProvidersPage /> },
           { path: "providers/:id", element: <ProviderDetailPage /> },
-          { path: "models", element: <ModelsPage /> },
-          { path: "model-families", element: <ModelFamiliesPage /> },
+          { path: "models", element: <ModelFamiliesPage /> },
+          { path: "model-families", element: <Navigate to="/models" replace /> },
           { path: "models/:id", element: <ModelDetailPage /> },
           { path: "users", element: <UsersPage /> },
           { path: "logs", element: <LogsPage /> },

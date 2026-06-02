@@ -37,8 +37,9 @@ export function DashboardPage() {
   const statsQuery = useQuery({ queryKey: ["admin", "stats"], queryFn: fetchAdminStats });
   const stats = statsQuery.data;
   const cards = [
-    { label: "累计请求", value: formatNumber(stats?.request_count), hint: "已进入网关" },
-    { label: "累计 Token", value: formatNumber(stats?.total_tokens), hint: "输入与输出合计" },
+    { label: "用户数", value: formatNumber(stats?.user_count), hint: "已创建账号" },
+    { label: "活跃用户数", value: formatNumber(stats?.active_user_count), hint: "状态为启用" },
+    { label: "Key 数量", value: formatNumber(stats?.api_key_count), hint: "已创建凭据" },
     { label: "供应商通道", value: formatNumber(stats?.provider_count), hint: "已配置来源" },
     { label: "对外模型", value: formatNumber(stats?.model_count), hint: "可路由能力" },
   ];

@@ -9,6 +9,7 @@ import { PricingFormItems } from "./PricingFormItems";
 interface ModelEditorDrawerProps {
   open: boolean;
   model?: Model;
+  initialFamily?: string;
   families: ModelFamily[];
   submitting: boolean;
   onClose: () => void;
@@ -25,7 +26,7 @@ interface ModelFormValues extends PricingFields {
   config_json_text: string;
 }
 
-export function ModelEditorDrawer({ open, model, families, submitting, onClose, onSubmit }: ModelEditorDrawerProps) {
+export function ModelEditorDrawer({ open, model, initialFamily, families, submitting, onClose, onSubmit }: ModelEditorDrawerProps) {
   const [form] = Form.useForm<ModelFormValues>();
   const hasActiveRoute = Boolean(model?.active_provider_model_id);
 
@@ -36,14 +37,14 @@ export function ModelEditorDrawer({ open, model, families, submitting, onClose, 
     form.setFieldsValue({
       name: model?.name ?? "",
       display_name: model?.display_name ?? "",
-      family: model?.family ?? families[0]?.name ?? "",
+      family: model?.family ?? initialFamily ?? families[0]?.name ?? "",
       modality: model?.modality ?? "text",
       status: model?.status ?? "disabled",
       description: model?.description ?? "",
       ...pricingJSONToFields(model?.pricing_json, "CNY"),
       config_json_text: formatJSON(model?.config_json),
     });
-  }, [families, form, open, model]);
+  }, [families, form, initialFamily, open, model]);
 
   async function handleFinish(values: ModelFormValues) {
     const pricingJSON = pricingFieldsToJSON(values);

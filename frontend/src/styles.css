@@ -770,7 +770,7 @@ body {
 
 .admin-summary .ant-card-body {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   padding: 0;
 }
 
@@ -1058,6 +1058,29 @@ body {
 
 .admin-provider-usage-table {
   border-top: 1px solid var(--admin-border);
+}
+
+.admin-family-model-table .ant-table-expanded-row > td {
+  background: var(--admin-subtle);
+}
+
+.admin-family-models {
+  padding: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 16px;
+  background: var(--admin-surface);
+}
+
+.admin-family-models-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-family-models .admin-table .ant-table {
+  border-radius: 12px;
 }
 
 .admin-table .ant-table {

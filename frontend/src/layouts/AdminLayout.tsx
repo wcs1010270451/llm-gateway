@@ -5,7 +5,6 @@ import {
   DatabaseOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
-  PartitionOutlined,
   UserOutlined,
 } from "@ant-design/icons";
 import { Button, ConfigProvider, Layout, Menu, Space, Typography } from "antd";
@@ -19,7 +18,6 @@ const navItems = [
   { key: "/dashboard", icon: <BarChartOutlined />, label: "概览" },
   { key: "/providers", icon: <DatabaseOutlined />, label: "供应商" },
   { key: "/models", icon: <ClusterOutlined />, label: "模型" },
-  { key: "/model-families", icon: <PartitionOutlined />, label: "模型系列" },
   { key: "/users", icon: <UserOutlined />, label: "用户" },
   { key: "/logs", icon: <ApiOutlined />, label: "日志" },
 ];

@@ -17,10 +17,11 @@ import type {
 } from "../types";
 
 export interface AdminStats {
-  request_count: number;
-  total_tokens: number;
   provider_count: number;
   model_count: number;
+  user_count: number;
+  active_user_count: number;
+  api_key_count: number;
   recent_usage: {
     request_count: number;
     success_count: number;

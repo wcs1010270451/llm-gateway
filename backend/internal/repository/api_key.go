@@ -26,6 +26,12 @@ func (r *APIKeyRepository) List(ctx context.Context) ([]entity.APIKey, error) {
 	return items, err
 }
 
+func (r *APIKeyRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&entity.APIKey{}).Count(&count).Error
+	return count, err
+}
+
 func (r *APIKeyRepository) ListByUser(ctx context.Context, userID int64) ([]entity.APIKey, error) {
 	var items []entity.APIKey
 	err := r.db.WithContext(ctx).
