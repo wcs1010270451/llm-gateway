@@ -5,6 +5,7 @@ import { AdminLayout } from "./layouts/AdminLayout";
 import { PortalLayout } from "./layouts/PortalLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LandingPage } from "./pages/LandingPage";
+import { LogDetailPage } from "./pages/LogDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModelDetailPage } from "./pages/ModelDetailPage";
 import { ModelFamiliesPage } from "./pages/ModelFamiliesPage";
@@ -13,6 +14,7 @@ import { ProvidersPage } from "./pages/ProvidersPage";
 import { LogsPage } from "./pages/LogsPage";
 import { PortalKeyDetailPage } from "./pages/PortalKeyDetailPage";
 import { PortalKeysPage } from "./pages/PortalKeysPage";
+import { PortalLogDetailPage } from "./pages/PortalLogDetailPage";
 import { UsersPage } from "./pages/UsersPage";
 
 const router = createBrowserRouter([
@@ -32,6 +34,7 @@ const router = createBrowserRouter([
           { path: "models/:id", element: <ModelDetailPage /> },
           { path: "users", element: <UsersPage /> },
           { path: "logs", element: <LogsPage /> },
+          { path: "logs/:id", element: <LogDetailPage /> },
         ],
       },
     ],
@@ -46,6 +49,7 @@ const router = createBrowserRouter([
           { index: true, element: <Navigate to="/portal/keys" replace /> },
           { path: "keys", element: <PortalKeysPage /> },
           { path: "keys/:id", element: <PortalKeyDetailPage /> },
+          { path: "keys/:keyID/logs/:logID", element: <PortalLogDetailPage /> },
         ],
       },
     ],

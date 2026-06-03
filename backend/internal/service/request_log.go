@@ -9,7 +9,8 @@ import (
 )
 
 type RequestLogService struct {
-	logs *repository.RequestLogRepository
+	logs   *repository.RequestLogRepository
+	bodies *RequestLogBodyStore
 }
 
 type ProviderUsageStats struct {
@@ -21,8 +22,8 @@ type ProviderUsageStats struct {
 	Models      []entity.ProviderModelUsageStat `json:"models"`
 }
 
-func NewRequestLogService(logs *repository.RequestLogRepository) *RequestLogService {
-	return &RequestLogService{logs: logs}
+func NewRequestLogService(logs *repository.RequestLogRepository, bodies *RequestLogBodyStore) *RequestLogService {
+	return &RequestLogService{logs: logs, bodies: bodies}
 }
 
 func (s *RequestLogService) List(ctx context.Context, page int, pageSize int) (RequestLogPage, error) {
@@ -35,7 +36,12 @@ func (s *RequestLogService) List(ctx context.Context, page int, pageSize int) (R
 }
 
 func (s *RequestLogService) Get(ctx context.Context, id int64) (entity.RequestLog, error) {
-	return s.logs.Get(ctx, id)
+	item, err := s.logs.Get(ctx, id)
+	if err != nil {
+		return entity.RequestLog{}, err
+	}
+	s.bodies.Attach(ctx, s.logs, &item)
+	return item, nil
 }
 
 func (s *RequestLogService) ProviderUsageStats(ctx context.Context, providerID int64, window string, granularity string) (ProviderUsageStats, error) {

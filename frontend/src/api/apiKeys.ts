@@ -76,6 +76,10 @@ export interface DebugMessagesResult {
   usage?: {
     prompt_tokens: number;
     completion_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+    reasoning_tokens: number;
+    tool_tokens: number;
     total_tokens: number;
   } | null;
   error?: string;
@@ -147,19 +151,31 @@ export async function sendMyDebugMessages(
       if (event.type === "message_start" && event.message?.usage) {
         const inputTokens: number = event.message.usage.input_tokens ?? 0;
         const outputTokens: number = event.message.usage.output_tokens ?? 0;
+        const cacheCreationTokens: number = event.message.usage.cache_creation_input_tokens ?? 0;
+        const cacheReadTokens: number = event.message.usage.cache_read_input_tokens ?? 0;
         usage = {
           prompt_tokens: inputTokens,
           completion_tokens: outputTokens,
-          total_tokens: inputTokens + outputTokens,
+          cache_creation_input_tokens: cacheCreationTokens,
+          cache_read_input_tokens: cacheReadTokens,
+          reasoning_tokens: 0,
+          tool_tokens: 0,
+          total_tokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
         };
       }
       if (event.type === "message_delta" && event.usage) {
         const inputTokens: number = usage?.prompt_tokens ?? 0;
         const outputTokens: number = event.usage.output_tokens ?? usage?.completion_tokens ?? 0;
+        const cacheCreationTokens: number = event.usage.cache_creation_input_tokens ?? usage?.cache_creation_input_tokens ?? 0;
+        const cacheReadTokens: number = event.usage.cache_read_input_tokens ?? usage?.cache_read_input_tokens ?? 0;
         usage = {
           prompt_tokens: inputTokens,
           completion_tokens: outputTokens,
-          total_tokens: inputTokens + outputTokens,
+          cache_creation_input_tokens: cacheCreationTokens,
+          cache_read_input_tokens: cacheReadTokens,
+          reasoning_tokens: 0,
+          tool_tokens: 0,
+          total_tokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
         };
       }
       options.onUpdate?.({ assistantText, rawText: assistantText, usage, status: response.status });
@@ -324,6 +340,8 @@ function parseAnthropicJSON(data: any, status: number): DebugMessagesResult {
     : "";
   const inputTokens = data?.usage?.input_tokens ?? 0;
   const outputTokens = data?.usage?.output_tokens ?? 0;
+  const cacheCreationTokens = data?.usage?.cache_creation_input_tokens ?? 0;
+  const cacheReadTokens = data?.usage?.cache_read_input_tokens ?? 0;
   return {
     data,
     status,
@@ -333,7 +351,11 @@ function parseAnthropicJSON(data: any, status: number): DebugMessagesResult {
       ? {
           prompt_tokens: inputTokens,
           completion_tokens: outputTokens,
-          total_tokens: inputTokens + outputTokens,
+          cache_creation_input_tokens: cacheCreationTokens,
+          cache_read_input_tokens: cacheReadTokens,
+          reasoning_tokens: 0,
+          tool_tokens: 0,
+          total_tokens: inputTokens + outputTokens + cacheCreationTokens + cacheReadTokens,
         }
       : null,
   };
@@ -344,6 +366,8 @@ function parseOpenAIJSON(data: any, status: number): DebugMessagesResult {
   const promptTokens = data?.usage?.prompt_tokens ?? 0;
   const completionTokens = data?.usage?.completion_tokens ?? 0;
   const totalTokens = data?.usage?.total_tokens ?? promptTokens + completionTokens;
+  const cachedTokens = data?.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+  const reasoningTokens = data?.usage?.completion_tokens_details?.reasoning_tokens ?? 0;
   return {
     data,
     status,
@@ -353,6 +377,10 @@ function parseOpenAIJSON(data: any, status: number): DebugMessagesResult {
       ? {
           prompt_tokens: promptTokens,
           completion_tokens: completionTokens,
+          cache_creation_input_tokens: 0,
+          cache_read_input_tokens: cachedTokens,
+          reasoning_tokens: reasoningTokens,
+          tool_tokens: 0,
           total_tokens: totalTokens,
         }
       : null,
@@ -384,9 +412,15 @@ function geminiUsage(data: any): DebugMessagesResult["usage"] {
   }
   const promptTokens = usage.promptTokenCount ?? 0;
   const completionTokens = usage.candidatesTokenCount ?? 0;
+  const thoughtsTokens = usage.thoughtsTokenCount ?? 0;
+  const toolTokens = usage.toolUsePromptTokenCount ?? 0;
   return {
     prompt_tokens: promptTokens,
     completion_tokens: completionTokens,
-    total_tokens: usage.totalTokenCount ?? promptTokens + completionTokens,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: usage.cachedContentTokenCount ?? 0,
+    reasoning_tokens: thoughtsTokens,
+    tool_tokens: toolTokens,
+    total_tokens: usage.totalTokenCount ?? promptTokens + completionTokens + thoughtsTokens + toolTokens,
   };
 }

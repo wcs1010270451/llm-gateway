@@ -20,6 +20,7 @@ type OpenAIProxyService struct {
 	logs   *repository.RequestLogRepository
 	models *repository.ModelRepository
 	cipher *ProviderKeyCipher
+	bodies *RequestLogBodyStore
 	client *http.Client
 }
 
@@ -45,14 +46,16 @@ type OpenAIChatCompletionsResult struct {
 	UserID         int64
 	APIKeyID       int64
 	RequestPreview datatypes.JSON
+	RequestBody    []byte
 }
 
-func NewOpenAIProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, models *repository.ModelRepository, cipher *ProviderKeyCipher) *OpenAIProxyService {
+func NewOpenAIProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, models *repository.ModelRepository, cipher *ProviderKeyCipher, bodies *RequestLogBodyStore) *OpenAIProxyService {
 	return &OpenAIProxyService{
 		routes: routes,
 		logs:   logs,
 		models: models,
 		cipher: cipher,
+		bodies: bodies,
 		client: &http.Client{},
 	}
 }
@@ -152,7 +155,7 @@ func (s *OpenAIProxyService) OpenChatCompletions(ctx context.Context, input Open
 			ErrorMessage:   err.Error(),
 			RequestPreview: buildRequestPreview(publicModel, route.ProviderModel.UpstreamModel, stream),
 			RequestType:    "chat_completions",
-		}))
+		}), input.Body, nil)
 		return nil, fmt.Errorf("upstream request failed: %w", err)
 	}
 
@@ -168,6 +171,7 @@ func (s *OpenAIProxyService) OpenChatCompletions(ctx context.Context, input Open
 		UserID:         input.UserID,
 		APIKeyID:       input.APIKeyID,
 		RequestPreview: buildRequestPreview(publicModel, route.ProviderModel.UpstreamModel, stream),
+		RequestBody:    input.Body,
 	}, nil
 }
 
@@ -178,7 +182,7 @@ func (s *OpenAIProxyService) LogChatCompletionsResult(ctx context.Context, resul
 
 	// 非流式响应通常有完整 usage；流式日志只保存片段，未解析 stream usage 前 Token 可能为 0。
 	statusCode := result.Response.StatusCode
-	promptTokens, completionTokens, totalTokens := extractOpenAIUsage(bodyPreview)
+	usage := extractOpenAIUsage(bodyPreview)
 	errorType := ""
 	errorMessage := ""
 	if statusCode < 200 || statusCode >= 300 {
@@ -189,35 +193,41 @@ func (s *OpenAIProxyService) LogChatCompletionsResult(ctx context.Context, resul
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
-	logMissingUsage(result.Route, result.PublicModel, result.Stream, "chat_completions", statusCode, promptTokens, completionTokens, totalTokens)
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, "chat_completions", statusCode, usage.prompt, usage.completion, usage.total)
 
 	logItem := buildRequestLog(RequestLogInput{
-		Route:            result.Route,
-		PublicModel:      result.PublicModel,
-		Stream:           result.Stream,
-		Method:           result.Method,
-		Path:             result.Path,
-		ClientIP:         result.ClientIP,
-		UserID:           result.UserID,
-		APIKeyID:         result.APIKeyID,
-		StartedAt:        result.StartedAt,
-		StatusCode:       statusCode,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		TotalTokens:      totalTokens,
-		ErrorType:        errorType,
-		ErrorMessage:     errorMessage,
-		RequestPreview:   result.RequestPreview,
-		ResponsePreview:  buildBodyPreview(bodyPreview),
-		RequestType:      "chat_completions",
+		Route:                result.Route,
+		PublicModel:          result.PublicModel,
+		Stream:               result.Stream,
+		Method:               result.Method,
+		Path:                 result.Path,
+		ClientIP:             result.ClientIP,
+		UserID:               result.UserID,
+		APIKeyID:             result.APIKeyID,
+		StartedAt:            result.StartedAt,
+		StatusCode:           statusCode,
+		PromptTokens:         usage.prompt,
+		CompletionTokens:     usage.completion,
+		CacheReadInputTokens: usage.cachedPrompt,
+		ReasoningTokens:      usage.reasoning,
+		TotalTokens:          usage.total,
+		ErrorType:            errorType,
+		ErrorMessage:         errorMessage,
+		RequestPreview:       result.RequestPreview,
+		ResponsePreview:      buildBodyPlaceholder(bodyPreview),
+		RequestType:          "chat_completions",
 	})
-	if err := s.writeLog(ctx, logItem); err != nil {
-		_ = s.writeLog(context.Background(), logItem)
+	if err := s.writeLog(ctx, logItem, result.RequestBody, bodyPreview); err != nil {
+		_ = s.writeLog(context.Background(), logItem, result.RequestBody, bodyPreview)
 	}
 }
 
-func (s *OpenAIProxyService) writeLog(ctx context.Context, item *entity.RequestLog) error {
-	return s.logs.Create(ctx, item)
+func (s *OpenAIProxyService) writeLog(ctx context.Context, item *entity.RequestLog, requestBody []byte, responseBody []byte) error {
+	if err := s.logs.Create(ctx, item); err != nil {
+		return err
+	}
+	s.bodies.Save(context.Background(), s.logs, item, requestBody, responseBody)
+	return nil
 }
 
 func ensureOpenAIStreamUsage(payload map[string]any) {
@@ -229,10 +239,10 @@ func ensureOpenAIStreamUsage(payload map[string]any) {
 	payload["stream_options"] = streamOptions
 }
 
-func extractOpenAIUsage(body []byte) (int, int, int) {
+func extractOpenAIUsage(body []byte) openAIUsage {
 	usage := extractOpenAIUsageFromJSON(body)
 	if usage.total > 0 {
-		return usage.prompt, usage.completion, usage.total
+		return usage
 	}
 
 	for _, event := range bytes.Split(body, []byte("\n\n")) {
@@ -251,21 +261,29 @@ func extractOpenAIUsage(body []byte) (int, int, int) {
 			}
 		}
 	}
-	return usage.prompt, usage.completion, usage.total
+	return usage
 }
 
 type openAIUsage struct {
-	prompt     int
-	completion int
-	total      int
+	prompt       int
+	completion   int
+	cachedPrompt int
+	reasoning    int
+	total        int
 }
 
 func extractOpenAIUsageFromJSON(body []byte) openAIUsage {
 	var payload struct {
 		Usage *struct {
-			PromptTokens     int `json:"prompt_tokens"`
-			CompletionTokens int `json:"completion_tokens"`
-			TotalTokens      int `json:"total_tokens"`
+			PromptTokens        int `json:"prompt_tokens"`
+			CompletionTokens    int `json:"completion_tokens"`
+			TotalTokens         int `json:"total_tokens"`
+			PromptTokensDetails *struct {
+				CachedTokens int `json:"cached_tokens"`
+			} `json:"prompt_tokens_details"`
+			CompletionTokensDetails *struct {
+				ReasoningTokens int `json:"reasoning_tokens"`
+			} `json:"completion_tokens_details"`
 		} `json:"usage"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil || payload.Usage == nil {
@@ -275,9 +293,16 @@ func extractOpenAIUsageFromJSON(body []byte) openAIUsage {
 	if total == 0 {
 		total = payload.Usage.PromptTokens + payload.Usage.CompletionTokens
 	}
-	return openAIUsage{
+	usage := openAIUsage{
 		prompt:     payload.Usage.PromptTokens,
 		completion: payload.Usage.CompletionTokens,
 		total:      total,
 	}
+	if payload.Usage.PromptTokensDetails != nil {
+		usage.cachedPrompt = payload.Usage.PromptTokensDetails.CachedTokens
+	}
+	if payload.Usage.CompletionTokensDetails != nil {
+		usage.reasoning = payload.Usage.CompletionTokensDetails.ReasoningTokens
+	}
+	return usage
 }

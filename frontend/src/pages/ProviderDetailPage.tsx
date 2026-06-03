@@ -235,6 +235,10 @@ export function ProviderDetailPage() {
     [usageStats],
   );
   const modelUsageColumns: ColumnsType<ProviderUsageStats["models"][number]> = [
+    { title: "Cache Create", dataIndex: "cache_creation_input_tokens", width: 140, render: formatInteger },
+    { title: "Cache Hit", dataIndex: "cache_read_input_tokens", width: 130, render: formatInteger },
+    { title: "Reasoning", dataIndex: "reasoning_tokens", width: 130, render: formatInteger },
+    { title: "Tool", dataIndex: "tool_tokens", width: 110, render: formatInteger },
     {
       title: "上游模型",
       dataIndex: "upstream_model",

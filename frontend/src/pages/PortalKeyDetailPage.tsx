@@ -1,6 +1,6 @@
-import { ArrowLeftOutlined, SendOutlined } from "@ant-design/icons";
+﻿import { ArrowLeftOutlined, SendOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { Button, Card, Checkbox, Descriptions, Drawer, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
+import { Button, Card, Checkbox, Descriptions, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
@@ -9,7 +9,6 @@ import {
   fetchMyAPIKey,
   fetchMyAPIKeyLogs,
   fetchMyAPIKeyModelStats,
-  fetchMyLog,
   fetchMyModels,
   sendMyDebugChatCompletions,
   sendMyDebugGeminiGenerateContent,
@@ -39,20 +38,6 @@ function formatUSD(value?: number) {
   }).format(value ?? 0);
 }
 
-function formatJSON(value: unknown) {
-  if (value === null || value === undefined || value === "") {
-    return "{}";
-  }
-  if (typeof value === "string") {
-    try {
-      return JSON.stringify(JSON.parse(value), null, 2);
-    } catch {
-      return value;
-    }
-  }
-  return JSON.stringify(value, null, 2);
-}
-
 function adapterTypeOf(model: Model) {
   return model.active_provider_model?.provider?.adapter_type;
 }
@@ -72,7 +57,6 @@ export function PortalKeyDetailPage() {
   const keyID = Number(params.id);
   const initialAPIKey = (location.state as { apiKey?: APIKey } | null)?.apiKey;
   const [logPage, setLogPage] = useState({ page: 1, pageSize: 20 });
-  const [selectedLogID, setSelectedLogID] = useState<number | null>(null);
   const [debugOpen, setDebugOpen] = useState(false);
   const [debugProtocol, setDebugProtocol] = useState<DebugProtocol>("anthropic");
   const [debugModel, setDebugModel] = useState("");
@@ -102,11 +86,6 @@ export function PortalKeyDetailPage() {
     queryKey: ["me", "api-keys", keyID, "logs", logPage],
     queryFn: () => fetchMyAPIKeyLogs(keyID, { page: logPage.page, page_size: logPage.pageSize }),
     enabled: Number.isFinite(keyID) && keyID > 0,
-  });
-  const logDetailQuery = useQuery({
-    queryKey: ["me", "logs", selectedLogID],
-    queryFn: () => fetchMyLog(selectedLogID ?? 0),
-    enabled: selectedLogID !== null,
   });
 
   const modelOptions = useMemo(() => {
@@ -175,6 +154,10 @@ export function PortalKeyDetailPage() {
   }
 
   const statColumns: ColumnsType<KeyModelUsageStat> = [
+    { title: "Cache Create", dataIndex: "cache_creation_input_tokens", width: 140, render: formatNumber },
+    { title: "Cache Hit", dataIndex: "cache_read_input_tokens", width: 130, render: formatNumber },
+    { title: "Reasoning", dataIndex: "reasoning_tokens", width: 130, render: formatNumber },
+    { title: "Tool", dataIndex: "tool_tokens", width: 110, render: formatNumber },
     { title: "模型", dataIndex: "public_model_name", key: "public_model_name" },
     { title: "请求数", dataIndex: "request_count", width: 120, render: formatNumber },
     { title: "输入 Token", dataIndex: "prompt_tokens", width: 140, render: formatNumber },
@@ -205,7 +188,7 @@ export function PortalKeyDetailPage() {
       <PageHeader
         eyebrow="CREDENTIAL DETAIL"
         title={keyQuery.data?.name ?? "Key 详情"}
-        description="查看凭据配置、模型用量和调用轨迹，并在需要时直接验证 API 响应。"
+        description="查看凭据配置、模型用量和调用日志，需要时可以直接调试 API 响应。"
         actions={
           <>
             <Button icon={<ArrowLeftOutlined />} onClick={() => navigate("/portal/keys")}>
@@ -236,7 +219,7 @@ export function PortalKeyDetailPage() {
         <Table className="portal-table" rowKey="public_model_name" columns={statColumns} dataSource={statsQuery.data?.items ?? []} loading={statsQuery.isLoading} pagination={false} scroll={{ x: "max-content" }} />
       </Card>
 
-      <Card className="portal-panel" title="调用日志" extra={<Typography.Text type="secondary">选择一行查看请求详情</Typography.Text>}>
+      <Card className="portal-panel" title="调用日志" extra={<Typography.Text type="secondary">选择一行打开详情页</Typography.Text>}>
         <Table
           className="portal-table portal-log-table"
           rowKey="id"
@@ -244,7 +227,7 @@ export function PortalKeyDetailPage() {
           dataSource={logsQuery.data?.items ?? []}
           loading={logsQuery.isLoading}
           scroll={{ x: 1260 }}
-          onRow={(record) => ({ onClick: () => setSelectedLogID(record.id), style: { cursor: "pointer" } })}
+          onRow={(record) => ({ onClick: () => navigate(`/portal/keys/${keyID}/logs/${record.id}`), style: { cursor: "pointer" } })}
           pagination={{
             current: logsQuery.data?.page ?? logPage.page,
             pageSize: logsQuery.data?.page_size ?? logPage.pageSize,
@@ -321,6 +304,10 @@ export function PortalKeyDetailPage() {
                   <pre className="json-preview">{debugResult.assistantText || "等待响应..."}</pre>
                   {debugResult.usage ? (
                     <Space size={16} wrap>
+                      <Typography.Text type="secondary">Cache Create: {formatNumber(debugResult.usage.cache_creation_input_tokens)}</Typography.Text>
+                      <Typography.Text type="secondary">Cache Hit: {formatNumber(debugResult.usage.cache_read_input_tokens)}</Typography.Text>
+                      <Typography.Text type="secondary">Reasoning: {formatNumber(debugResult.usage.reasoning_tokens)}</Typography.Text>
+                      <Typography.Text type="secondary">Tool: {formatNumber(debugResult.usage.tool_tokens)}</Typography.Text>
                       <Typography.Text type="secondary">输入 Token: {formatNumber(debugResult.usage.prompt_tokens)}</Typography.Text>
                       <Typography.Text type="secondary">输出 Token: {formatNumber(debugResult.usage.completion_tokens)}</Typography.Text>
                       <Typography.Text type="secondary">总 Token: {formatNumber(debugResult.usage.total_tokens)}</Typography.Text>
@@ -333,43 +320,6 @@ export function PortalKeyDetailPage() {
         </Space>
       </Modal>
 
-      <Drawer rootClassName="portal-drawer" open={selectedLogID !== null} title="日志详情" size={760} onClose={() => setSelectedLogID(null)} destroyOnHidden>
-        {logDetailQuery.isLoading || !logDetailQuery.data ? (
-          <Typography.Text type="secondary">正在加载...</Typography.Text>
-        ) : (
-          <Space direction="vertical" size={18} style={{ width: "100%" }}>
-            <Descriptions bordered column={2} size="small">
-              <Descriptions.Item label="Request ID" span={2}>
-                {logDetailQuery.data.request_id || "-"}
-              </Descriptions.Item>
-              <Descriptions.Item label="模型">{logDetailQuery.data.public_model_name || "-"}</Descriptions.Item>
-              <Descriptions.Item label="上游模型">{logDetailQuery.data.upstream_model || "-"}</Descriptions.Item>
-              <Descriptions.Item label="状态">
-                <Tag color={logDetailQuery.data.success ? "success" : "error"}>{logDetailQuery.data.success ? "成功" : "失败"}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="HTTP">{logDetailQuery.data.http_status}</Descriptions.Item>
-              <Descriptions.Item label="延迟">{logDetailQuery.data.latency_ms} ms</Descriptions.Item>
-              <Descriptions.Item label="预估成本">{formatUSD(logDetailQuery.data.estimated_cost)}</Descriptions.Item>
-              <Descriptions.Item label="错误类型">{logDetailQuery.data.error_type || "-"}</Descriptions.Item>
-              <Descriptions.Item label="错误信息" span={2}>
-                {logDetailQuery.data.error_message || "-"}
-              </Descriptions.Item>
-            </Descriptions>
-            <div>
-              <Typography.Title level={5}>请求预览</Typography.Title>
-              <pre className="json-preview">{formatJSON(logDetailQuery.data.request_preview)}</pre>
-            </div>
-            <div>
-              <Typography.Title level={5}>响应预览</Typography.Title>
-              <pre className="json-preview">{formatJSON(logDetailQuery.data.response_preview)}</pre>
-            </div>
-            <div>
-              <Typography.Title level={5}>元数据</Typography.Title>
-              <pre className="json-preview">{formatJSON(logDetailQuery.data.metadata)}</pre>
-            </div>
-          </Space>
-        )}
-      </Drawer>
     </div>
   );
 }

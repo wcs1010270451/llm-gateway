@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -34,19 +36,21 @@ func NewRouter(cfg config.Config, db *gorm.DB) *gin.Engine {
 	requestLogRepo := repository.NewRequestLogRepository(db)
 	apiKeyRepo := repository.NewAPIKeyRepository(db)
 	providerKeyCipher := service.NewProviderKeyCipher(cfg.ProviderKeySecret)
+	requestLogBodyStore := service.NewRequestLogBodyStore(cfg.LogBodyDir, cfg.LogBodyRetentionDays)
+	requestLogBodyStore.StartCleanupLoop(context.Background(), requestLogRepo)
 	providerService := service.NewProviderService(providerRepo, providerKeyCipher)
 	modelFamilyService := service.NewModelFamilyService(modelFamilyRepo)
 	modelService := service.NewModelService(modelRepo, modelFamilyRepo)
 	userService := service.NewUserService(userRepo)
 	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, providerKeyCipher)
-	requestLogService := service.NewRequestLogService(requestLogRepo)
+	requestLogService := service.NewRequestLogService(requestLogRepo, requestLogBodyStore)
 	adminStatsService := service.NewAdminStatsService(providerRepo, modelRepo, requestLogRepo, userRepo, apiKeyRepo)
 	authService := service.NewAuthService(userRepo, cfg.AuthTokenSecret)
 	claudeProxyMonitorService := service.NewClaudeProxyMonitorService(providerService)
-	anthropicProxyService := service.NewAnthropicProxyService(routingRepo, requestLogRepo, providerKeyCipher)
-	openAIProxyService := service.NewOpenAIProxyService(routingRepo, requestLogRepo, modelRepo, providerKeyCipher)
-	geminiProxyService := service.NewGeminiProxyService(routingRepo, requestLogRepo, providerKeyCipher)
-	userConsoleService := service.NewUserConsoleService(apiKeyRepo, modelRepo, requestLogRepo, anthropicProxyService, openAIProxyService, geminiProxyService)
+	anthropicProxyService := service.NewAnthropicProxyService(routingRepo, requestLogRepo, providerKeyCipher, requestLogBodyStore)
+	openAIProxyService := service.NewOpenAIProxyService(routingRepo, requestLogRepo, modelRepo, providerKeyCipher, requestLogBodyStore)
+	geminiProxyService := service.NewGeminiProxyService(routingRepo, requestLogRepo, providerKeyCipher, requestLogBodyStore)
+	userConsoleService := service.NewUserConsoleService(apiKeyRepo, modelRepo, requestLogRepo, requestLogBodyStore, anthropicProxyService, openAIProxyService, geminiProxyService)
 	systemHandler := system.NewHandler(db)
 	adminHandler := admin.NewHandler(providerService, modelService, modelFamilyService, userService, requestLogService, adminStatsService, claudeProxyMonitorService)
 	authHandler := authapi.NewHandler(authService)

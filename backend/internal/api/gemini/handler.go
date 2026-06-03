@@ -125,7 +125,7 @@ func (h *Handler) handle(c *gin.Context, stream bool) {
 		return
 	}
 
-	preview := &limitedBuffer{limit: 4096}
+	preview := &bytes.Buffer{}
 	writer := flushWriter{writer: c.Writer}
 	_, copyErr := io.Copy(writer, io.TeeReader(result.Response.Body, preview))
 	if copyErr != nil {

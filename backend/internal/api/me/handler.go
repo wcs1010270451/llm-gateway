@@ -1,6 +1,7 @@
 package me
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"log"
@@ -273,7 +274,7 @@ func (h *Handler) DebugMessages(c *gin.Context) {
 	}
 
 	// 流式响应不能完整缓冲，否则会破坏实时转发；这里只截取小片段用于日志预览。
-	preview := &limitedBuffer{limit: 4096}
+	preview := &bytes.Buffer{}
 	writer := flushWriter{writer: c.Writer}
 	_, copyErr := io.Copy(writer, io.TeeReader(result.Response.Body, preview))
 	if copyErr != nil {
@@ -329,7 +330,7 @@ func (h *Handler) DebugChatCompletions(c *gin.Context) {
 	}
 
 	// 流式响应不能完整缓冲，否则会破坏实时转发；这里只截取小片段用于日志预览。
-	preview := &limitedBuffer{limit: 4096}
+	preview := &bytes.Buffer{}
 	writer := flushWriter{writer: c.Writer}
 	_, copyErr := io.Copy(writer, io.TeeReader(result.Response.Body, preview))
 	if copyErr != nil {
@@ -399,7 +400,7 @@ func (h *Handler) debugGemini(c *gin.Context, stream bool) {
 		return
 	}
 
-	preview := &limitedBuffer{limit: 4096}
+	preview := &bytes.Buffer{}
 	writer := flushWriter{writer: c.Writer}
 	_, copyErr := io.Copy(writer, io.TeeReader(result.Response.Body, preview))
 	if copyErr != nil {

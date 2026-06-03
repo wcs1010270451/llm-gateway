@@ -14,12 +14,61 @@ type RequestLogRepository struct {
 	db *gorm.DB
 }
 
+var requestLogListColumns = []string{
+	"id",
+	"request_id",
+	"user_id",
+	"api_key_id",
+	"model_id",
+	"public_model_name",
+	"provider_id",
+	"provider_model_id",
+	"adapter_type",
+	"upstream_model",
+	"request_type",
+	"stream",
+	"client_ip",
+	"request_method",
+	"request_path",
+	"http_status",
+	"success",
+	"latency_ms",
+	"total_tokens",
+	"error_type",
+	"error_message",
+	"created_at",
+}
+
 func NewRequestLogRepository(db *gorm.DB) *RequestLogRepository {
 	return &RequestLogRepository{db: db}
 }
 
 func (r *RequestLogRepository) Create(ctx context.Context, item *entity.RequestLog) error {
 	return r.db.WithContext(ctx).Create(item).Error
+}
+
+func (r *RequestLogRepository) CreateBody(ctx context.Context, item *entity.RequestLogBody) error {
+	return r.db.WithContext(ctx).Create(item).Error
+}
+
+func (r *RequestLogRepository) GetBodyByRequestLogID(ctx context.Context, requestLogID int64) (entity.RequestLogBody, error) {
+	var item entity.RequestLogBody
+	err := r.db.WithContext(ctx).Where("request_log_id = ?", requestLogID).First(&item).Error
+	return item, err
+}
+
+func (r *RequestLogRepository) ListExpiredBodies(ctx context.Context, now time.Time, limit int) ([]entity.RequestLogBody, error) {
+	var items []entity.RequestLogBody
+	err := r.db.WithContext(ctx).
+		Where("expires_at <= ?", now).
+		Order("id ASC").
+		Limit(limit).
+		Find(&items).Error
+	return items, err
+}
+
+func (r *RequestLogRepository) DeleteBody(ctx context.Context, id int64) error {
+	return r.db.WithContext(ctx).Delete(&entity.RequestLogBody{}, id).Error
 }
 
 func (r *RequestLogRepository) List(ctx context.Context, page int, pageSize int) ([]entity.RequestLog, int64, error) {
@@ -31,6 +80,7 @@ func (r *RequestLogRepository) List(ctx context.Context, page int, pageSize int)
 
 	var items []entity.RequestLog
 	err := query.
+		Select(requestLogListColumns).
 		Preload("User").
 		Order("id DESC").
 		Limit(pageSize).
@@ -84,6 +134,10 @@ func (r *RequestLogRepository) TopModelsSince(ctx context.Context, since time.Ti
 			COUNT(*) AS request_count,
 			COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
 			COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
+			COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+			COALESCE(SUM(tool_tokens), 0) AS tool_tokens,
 			COALESCE(SUM(total_tokens), 0) AS total_tokens,
 			COALESCE(SUM(estimated_cost), 0) AS estimated_cost
 		`).
@@ -106,6 +160,7 @@ func (r *RequestLogRepository) ListByUserAPIKey(ctx context.Context, userID int6
 
 	var items []entity.RequestLog
 	err := query.
+		Select(requestLogListColumns).
 		Order("id DESC").
 		Limit(pageSize).
 		Offset((page - 1) * pageSize).
@@ -130,6 +185,10 @@ func (r *RequestLogRepository) ModelStatsByUserAPIKey(ctx context.Context, userI
 			COUNT(*) AS request_count,
 			COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
 			COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
+			COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+			COALESCE(SUM(tool_tokens), 0) AS tool_tokens,
 			COALESCE(SUM(total_tokens), 0) AS total_tokens,
 			COALESCE(SUM(estimated_cost), 0) AS estimated_cost
 		`).
@@ -188,6 +247,10 @@ func (r *RequestLogRepository) ProviderModelUsageStats(ctx context.Context, prov
 			COALESCE(SUM(CASE WHEN success THEN 1 ELSE 0 END), 0) AS success_count,
 			COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
 			COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
+			COALESCE(SUM(reasoning_tokens), 0) AS reasoning_tokens,
+			COALESCE(SUM(tool_tokens), 0) AS tool_tokens,
 			COALESCE(SUM(total_tokens), 0) AS total_tokens,
 			COALESCE(SUM(estimated_cost), 0) AS estimated_cost,
 			COALESCE(AVG(latency_ms), 0) AS average_latency_ms,

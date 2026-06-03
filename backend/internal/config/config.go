@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 )
 
 type Config struct {
-	Env               string
-	HTTPAddr          string
-	DatabaseURL       string
-	AuthTokenSecret   string
-	ProviderKeySecret string
-	FrontendOrigin    string
-	GinTrustedProxies []string
+	Env                  string
+	HTTPAddr             string
+	DatabaseURL          string
+	AuthTokenSecret      string
+	ProviderKeySecret    string
+	FrontendOrigin       string
+	GinTrustedProxies    []string
+	LogBodyDir           string
+	LogBodyRetentionDays int
 }
 
 func Load() Config {
@@ -31,6 +34,8 @@ func Load() Config {
 		GinTrustedProxies: splitCSV(
 			getenv("GIN_TRUSTED_PROXIES", "127.0.0.1"),
 		),
+		LogBodyDir:           getenv("LOG_BODY_DIR", "./tmp/request-log-bodies"),
+		LogBodyRetentionDays: getenvInt("LOG_BODY_RETENTION_DAYS", 7),
 	}
 }
 
@@ -97,6 +102,18 @@ func getenv(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+func getenvInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil || parsed <= 0 {
+		return fallback
+	}
+	return parsed
 }
 
 func splitCSV(value string) []string {

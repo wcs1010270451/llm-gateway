@@ -86,6 +86,10 @@ export interface ProviderUsageStats {
     success_count: number;
     prompt_tokens: number;
     completion_tokens: number;
+    cache_creation_input_tokens: number;
+    cache_read_input_tokens: number;
+    reasoning_tokens: number;
+    tool_tokens: number;
     total_tokens: number;
     estimated_cost: number;
     average_latency_ms: number;

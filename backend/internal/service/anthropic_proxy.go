@@ -20,6 +20,7 @@ type AnthropicProxyService struct {
 	routes *repository.RoutingRepository
 	logs   *repository.RequestLogRepository
 	cipher *ProviderKeyCipher
+	bodies *RequestLogBodyStore
 	client *http.Client
 }
 
@@ -45,13 +46,15 @@ type AnthropicMessagesResult struct {
 	UserID         int64
 	APIKeyID       int64
 	RequestPreview datatypes.JSON
+	RequestBody    []byte
 }
 
-func NewAnthropicProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, cipher *ProviderKeyCipher) *AnthropicProxyService {
+func NewAnthropicProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, cipher *ProviderKeyCipher, bodies *RequestLogBodyStore) *AnthropicProxyService {
 	return &AnthropicProxyService{
 		routes: routes,
 		logs:   logs,
 		cipher: cipher,
+		bodies: bodies,
 		client: &http.Client{},
 	}
 }
@@ -150,7 +153,7 @@ func (s *AnthropicProxyService) OpenMessages(ctx context.Context, input Anthropi
 			ErrorType:      "upstream_request_error",
 			ErrorMessage:   err.Error(),
 			RequestPreview: buildRequestPreview(publicModel, route.ProviderModel.UpstreamModel, stream),
-		}))
+		}), input.Body, nil)
 		return nil, fmt.Errorf("upstream request failed: %w", err)
 	}
 
@@ -166,6 +169,7 @@ func (s *AnthropicProxyService) OpenMessages(ctx context.Context, input Anthropi
 		UserID:         input.UserID,
 		APIKeyID:       input.APIKeyID,
 		RequestPreview: buildRequestPreview(publicModel, route.ProviderModel.UpstreamModel, stream),
+		RequestBody:    input.Body,
 	}, nil
 }
 
@@ -176,8 +180,8 @@ func (s *AnthropicProxyService) LogMessagesResult(ctx context.Context, result *A
 
 	// 非流式响应通常有完整 usage；流式日志只保存片段，未解析 stream usage 前 Token 可能为 0。
 	statusCode := result.Response.StatusCode
-	promptTokens, completionTokens := extractAnthropicUsage(bodyPreview)
-	totalTokens := promptTokens + completionTokens
+	usage := extractAnthropicUsage(bodyPreview)
+	totalTokens := usage.total()
 	errorType := ""
 	errorMessage := ""
 	if statusCode < 200 || statusCode >= 300 {
@@ -188,51 +192,57 @@ func (s *AnthropicProxyService) LogMessagesResult(ctx context.Context, result *A
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
-	logMissingUsage(result.Route, result.PublicModel, result.Stream, "messages", statusCode, promptTokens, completionTokens, totalTokens)
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, "messages", statusCode, usage.input, usage.output, totalTokens)
 
 	logItem := buildRequestLog(RequestLogInput{
-		Route:            result.Route,
-		PublicModel:      result.PublicModel,
-		Stream:           result.Stream,
-		Method:           result.Method,
-		Path:             result.Path,
-		ClientIP:         result.ClientIP,
-		UserID:           result.UserID,
-		APIKeyID:         result.APIKeyID,
-		StartedAt:        result.StartedAt,
-		StatusCode:       statusCode,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		TotalTokens:      totalTokens,
-		ErrorType:        errorType,
-		ErrorMessage:     errorMessage,
-		RequestPreview:   result.RequestPreview,
-		ResponsePreview:  buildBodyPreview(bodyPreview),
+		Route:                    result.Route,
+		PublicModel:              result.PublicModel,
+		Stream:                   result.Stream,
+		Method:                   result.Method,
+		Path:                     result.Path,
+		ClientIP:                 result.ClientIP,
+		UserID:                   result.UserID,
+		APIKeyID:                 result.APIKeyID,
+		StartedAt:                result.StartedAt,
+		StatusCode:               statusCode,
+		PromptTokens:             usage.input,
+		CompletionTokens:         usage.output,
+		CacheCreationInputTokens: usage.cacheCreation,
+		CacheReadInputTokens:     usage.cacheRead,
+		TotalTokens:              totalTokens,
+		ErrorType:                errorType,
+		ErrorMessage:             errorMessage,
+		RequestPreview:           result.RequestPreview,
+		ResponsePreview:          buildBodyPlaceholder(bodyPreview),
 	})
-	if err := s.writeLog(ctx, logItem); err != nil {
-		_ = s.writeLog(context.Background(), logItem)
+	if err := s.writeLog(ctx, logItem, result.RequestBody, bodyPreview); err != nil {
+		_ = s.writeLog(context.Background(), logItem, result.RequestBody, bodyPreview)
 	}
 }
 
 type RequestLogInput struct {
-	Route            repository.ResolvedRoute
-	PublicModel      string
-	Stream           bool
-	Method           string
-	Path             string
-	ClientIP         string
-	UserID           int64
-	APIKeyID         int64
-	StartedAt        time.Time
-	StatusCode       int
-	PromptTokens     int
-	CompletionTokens int
-	TotalTokens      int
-	ErrorType        string
-	ErrorMessage     string
-	RequestPreview   datatypes.JSON
-	ResponsePreview  datatypes.JSON
-	RequestType      string
+	Route                    repository.ResolvedRoute
+	PublicModel              string
+	Stream                   bool
+	Method                   string
+	Path                     string
+	ClientIP                 string
+	UserID                   int64
+	APIKeyID                 int64
+	StartedAt                time.Time
+	StatusCode               int
+	PromptTokens             int
+	CompletionTokens         int
+	CacheCreationInputTokens int
+	CacheReadInputTokens     int
+	ReasoningTokens          int
+	ToolTokens               int
+	TotalTokens              int
+	ErrorType                string
+	ErrorMessage             string
+	RequestPreview           datatypes.JSON
+	ResponsePreview          datatypes.JSON
+	RequestType              string
 }
 
 func buildRequestLog(input RequestLogInput) *entity.RequestLog {
@@ -249,37 +259,45 @@ func buildRequestLog(input RequestLogInput) *entity.RequestLog {
 	}
 
 	return &entity.RequestLog{
-		RequestID:        uuid.NewString(),
-		UserID:           &userID,
-		APIKeyID:         &apiKeyID,
-		ModelID:          &modelID,
-		PublicModelName:  input.PublicModel,
-		ProviderID:       &providerID,
-		ProviderModelID:  &providerModelID,
-		AdapterType:      input.Route.Provider.AdapterType,
-		UpstreamModel:    input.Route.ProviderModel.UpstreamModel,
-		RequestType:      requestType,
-		Stream:           input.Stream,
-		ClientIP:         input.ClientIP,
-		RequestMethod:    input.Method,
-		RequestPath:      input.Path,
-		HTTPStatus:       input.StatusCode,
-		Success:          input.StatusCode >= 200 && input.StatusCode < 300 && input.ErrorType == "",
-		LatencyMS:        int(time.Since(input.StartedAt).Milliseconds()),
-		PromptTokens:     input.PromptTokens,
-		CompletionTokens: input.CompletionTokens,
-		TotalTokens:      input.TotalTokens,
-		EstimatedCost:    estimatedCost,
-		ErrorType:        input.ErrorType,
-		ErrorMessage:     truncateString(input.ErrorMessage, 1000),
-		RequestPreview:   withDefaultJSON(input.RequestPreview),
-		ResponsePreview:  withDefaultJSON(input.ResponsePreview),
-		Metadata:         datatypes.JSON([]byte("{}")),
+		RequestID:                uuid.NewString(),
+		UserID:                   &userID,
+		APIKeyID:                 &apiKeyID,
+		ModelID:                  &modelID,
+		PublicModelName:          input.PublicModel,
+		ProviderID:               &providerID,
+		ProviderModelID:          &providerModelID,
+		AdapterType:              input.Route.Provider.AdapterType,
+		UpstreamModel:            input.Route.ProviderModel.UpstreamModel,
+		RequestType:              requestType,
+		Stream:                   input.Stream,
+		ClientIP:                 input.ClientIP,
+		RequestMethod:            input.Method,
+		RequestPath:              input.Path,
+		HTTPStatus:               input.StatusCode,
+		Success:                  input.StatusCode >= 200 && input.StatusCode < 300 && input.ErrorType == "",
+		LatencyMS:                int(time.Since(input.StartedAt).Milliseconds()),
+		PromptTokens:             input.PromptTokens,
+		CompletionTokens:         input.CompletionTokens,
+		CacheCreationInputTokens: input.CacheCreationInputTokens,
+		CacheReadInputTokens:     input.CacheReadInputTokens,
+		ReasoningTokens:          input.ReasoningTokens,
+		ToolTokens:               input.ToolTokens,
+		TotalTokens:              input.TotalTokens,
+		EstimatedCost:            estimatedCost,
+		ErrorType:                input.ErrorType,
+		ErrorMessage:             truncateString(input.ErrorMessage, 1000),
+		RequestPreview:           withDefaultJSON(input.RequestPreview),
+		ResponsePreview:          withDefaultJSON(input.ResponsePreview),
+		Metadata:                 datatypes.JSON([]byte("{}")),
 	}
 }
 
-func (s *AnthropicProxyService) writeLog(ctx context.Context, item *entity.RequestLog) error {
-	return s.logs.Create(ctx, item)
+func (s *AnthropicProxyService) writeLog(ctx context.Context, item *entity.RequestLog, requestBody []byte, responseBody []byte) error {
+	if err := s.logs.Create(ctx, item); err != nil {
+		return err
+	}
+	s.bodies.Save(context.Background(), s.logs, item, requestBody, responseBody)
+	return nil
 }
 
 func buildRequestPreview(publicModel string, upstreamModel string, stream bool) datatypes.JSON {
@@ -290,12 +308,13 @@ func buildRequestPreview(publicModel string, upstreamModel string, stream bool) 
 	})
 }
 
-func buildBodyPreview(body []byte) datatypes.JSON {
+func buildBodyPlaceholder(body []byte) datatypes.JSON {
 	if len(body) == 0 {
 		return datatypes.JSON([]byte("{}"))
 	}
 	return mustJSON(map[string]any{
-		"body": truncateString(string(body), 2000),
+		"stored": true,
+		"bytes":  len(body),
 	})
 }
 
@@ -314,10 +333,10 @@ func mustJSON(value any) datatypes.JSON {
 	return datatypes.JSON(data)
 }
 
-func extractAnthropicUsage(body []byte) (int, int) {
+func extractAnthropicUsage(body []byte) anthropicUsage {
 	usage := extractAnthropicUsageFromJSON(body)
 	if usage.input > 0 || usage.output > 0 {
-		return usage.input, usage.output
+		return usage
 	}
 
 	for _, event := range bytes.Split(body, []byte("\n\n")) {
@@ -337,26 +356,42 @@ func extractAnthropicUsage(body []byte) (int, int) {
 			if next.output > 0 {
 				usage.output = next.output
 			}
+			if next.cacheCreation > 0 {
+				usage.cacheCreation = next.cacheCreation
+			}
+			if next.cacheRead > 0 {
+				usage.cacheRead = next.cacheRead
+			}
 		}
 	}
-	return usage.input, usage.output
+	return usage
 }
 
 type anthropicUsage struct {
-	input  int
-	output int
+	input         int
+	output        int
+	cacheCreation int
+	cacheRead     int
+}
+
+func (u anthropicUsage) total() int {
+	return u.input + u.output + u.cacheCreation + u.cacheRead
 }
 
 func extractAnthropicUsageFromJSON(body []byte) anthropicUsage {
 	var payload struct {
 		Usage *struct {
-			InputTokens  int `json:"input_tokens"`
-			OutputTokens int `json:"output_tokens"`
+			InputTokens              int `json:"input_tokens"`
+			OutputTokens             int `json:"output_tokens"`
+			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+			CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 		} `json:"usage"`
 		Message *struct {
 			Usage *struct {
-				InputTokens  int `json:"input_tokens"`
-				OutputTokens int `json:"output_tokens"`
+				InputTokens              int `json:"input_tokens"`
+				OutputTokens             int `json:"output_tokens"`
+				CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
+				CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 			} `json:"usage"`
 		} `json:"message"`
 	}
@@ -365,13 +400,17 @@ func extractAnthropicUsageFromJSON(body []byte) anthropicUsage {
 			return anthropicUsage{}
 		}
 		return anthropicUsage{
-			input:  payload.Message.Usage.InputTokens,
-			output: payload.Message.Usage.OutputTokens,
+			input:         payload.Message.Usage.InputTokens,
+			output:        payload.Message.Usage.OutputTokens,
+			cacheCreation: payload.Message.Usage.CacheCreationInputTokens,
+			cacheRead:     payload.Message.Usage.CacheReadInputTokens,
 		}
 	}
 	return anthropicUsage{
-		input:  payload.Usage.InputTokens,
-		output: payload.Usage.OutputTokens,
+		input:         payload.Usage.InputTokens,
+		output:        payload.Usage.OutputTokens,
+		cacheCreation: payload.Usage.CacheCreationInputTokens,
+		cacheRead:     payload.Usage.CacheReadInputTokens,
 	}
 }
 

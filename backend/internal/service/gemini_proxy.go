@@ -27,6 +27,7 @@ type GeminiProxyService struct {
 	routes          *repository.RoutingRepository
 	logs            *repository.RequestLogRepository
 	cipher          *ProviderKeyCipher
+	bodies          *RequestLogBodyStore
 	client          *http.Client
 	vertexClientsMu sync.RWMutex
 	vertexClients   map[string]*genai.Client
@@ -56,14 +57,16 @@ type GeminiGenerateContentResult struct {
 	UserID         int64
 	APIKeyID       int64
 	RequestPreview datatypes.JSON
+	RequestBody    []byte
 	RequestType    string
 }
 
-func NewGeminiProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, cipher *ProviderKeyCipher) *GeminiProxyService {
+func NewGeminiProxyService(routes *repository.RoutingRepository, logs *repository.RequestLogRepository, cipher *ProviderKeyCipher, bodies *RequestLogBodyStore) *GeminiProxyService {
 	return &GeminiProxyService{
 		routes:        routes,
 		logs:          logs,
 		cipher:        cipher,
+		bodies:        bodies,
 		client:        &http.Client{},
 		vertexClients: make(map[string]*genai.Client),
 	}
@@ -124,6 +127,7 @@ func (s *GeminiProxyService) open(ctx context.Context, input GeminiGenerateConte
 		UserID:         input.UserID,
 		APIKeyID:       input.APIKeyID,
 		RequestPreview: buildRequestPreview(publicModel, route.ProviderModel.UpstreamModel, input.Stream),
+		RequestBody:    input.Body,
 		RequestType:    input.RequestType,
 	}
 
@@ -153,7 +157,7 @@ func (s *GeminiProxyService) open(ctx context.Context, input GeminiGenerateConte
 			ErrorMessage:   err.Error(),
 			RequestPreview: result.RequestPreview,
 			RequestType:    input.RequestType,
-		}))
+		}), input.Body, nil)
 		return nil, fmt.Errorf("upstream request failed: %w", err)
 	}
 	result.Response = resp
@@ -286,7 +290,7 @@ func (s *GeminiProxyService) LogGenerateContentResult(ctx context.Context, resul
 	}
 
 	statusCode := result.Response.StatusCode
-	promptTokens, completionTokens, totalTokens := extractGeminiUsage(bodyPreview)
+	usage := extractGeminiUsage(bodyPreview)
 	errorType := ""
 	errorMessage := ""
 	if statusCode < 200 || statusCode >= 300 {
@@ -297,35 +301,42 @@ func (s *GeminiProxyService) LogGenerateContentResult(ctx context.Context, resul
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
 	}
-	logMissingUsage(result.Route, result.PublicModel, result.Stream, result.RequestType, statusCode, promptTokens, completionTokens, totalTokens)
+	logMissingUsage(result.Route, result.PublicModel, result.Stream, result.RequestType, statusCode, usage.prompt, usage.completion, usage.total)
 
 	logItem := buildRequestLog(RequestLogInput{
-		Route:            result.Route,
-		PublicModel:      result.PublicModel,
-		Stream:           result.Stream,
-		Method:           result.Method,
-		Path:             result.Path,
-		ClientIP:         result.ClientIP,
-		UserID:           result.UserID,
-		APIKeyID:         result.APIKeyID,
-		StartedAt:        result.StartedAt,
-		StatusCode:       statusCode,
-		PromptTokens:     promptTokens,
-		CompletionTokens: completionTokens,
-		TotalTokens:      totalTokens,
-		ErrorType:        errorType,
-		ErrorMessage:     errorMessage,
-		RequestPreview:   result.RequestPreview,
-		ResponsePreview:  buildBodyPreview(bodyPreview),
-		RequestType:      result.RequestType,
+		Route:                result.Route,
+		PublicModel:          result.PublicModel,
+		Stream:               result.Stream,
+		Method:               result.Method,
+		Path:                 result.Path,
+		ClientIP:             result.ClientIP,
+		UserID:               result.UserID,
+		APIKeyID:             result.APIKeyID,
+		StartedAt:            result.StartedAt,
+		StatusCode:           statusCode,
+		PromptTokens:         usage.prompt,
+		CompletionTokens:     usage.completion,
+		CacheReadInputTokens: usage.cached,
+		ReasoningTokens:      usage.thoughts,
+		ToolTokens:           usage.tool,
+		TotalTokens:          usage.total,
+		ErrorType:            errorType,
+		ErrorMessage:         errorMessage,
+		RequestPreview:       result.RequestPreview,
+		ResponsePreview:      buildBodyPlaceholder(bodyPreview),
+		RequestType:          result.RequestType,
 	})
-	if err := s.writeLog(ctx, logItem); err != nil {
-		_ = s.writeLog(context.Background(), logItem)
+	if err := s.writeLog(ctx, logItem, result.RequestBody, bodyPreview); err != nil {
+		_ = s.writeLog(context.Background(), logItem, result.RequestBody, bodyPreview)
 	}
 }
 
-func (s *GeminiProxyService) writeLog(ctx context.Context, item *entity.RequestLog) error {
-	return s.logs.Create(ctx, item)
+func (s *GeminiProxyService) writeLog(ctx context.Context, item *entity.RequestLog, requestBody []byte, responseBody []byte) error {
+	if err := s.logs.Create(ctx, item); err != nil {
+		return err
+	}
+	s.bodies.Save(context.Background(), s.logs, item, requestBody, responseBody)
+	return nil
 }
 
 func parseGeminiPayload(body []byte) (map[string]any, string, error) {
@@ -484,10 +495,10 @@ func writeSSEJSON(writer io.Writer, payload map[string]any) error {
 	return err
 }
 
-func extractGeminiUsage(body []byte) (int, int, int) {
+func extractGeminiUsage(body []byte) geminiUsage {
 	usage := extractGeminiUsageFromJSON(body)
 	if usage.total > 0 {
-		return usage.prompt, usage.completion, usage.total
+		return usage
 	}
 	for _, event := range bytes.Split(body, []byte("\n\n")) {
 		for _, line := range bytes.Split(event, []byte("\n")) {
@@ -505,21 +516,27 @@ func extractGeminiUsage(body []byte) (int, int, int) {
 			}
 		}
 	}
-	return usage.prompt, usage.completion, usage.total
+	return usage
 }
 
 type geminiUsage struct {
 	prompt     int
 	completion int
+	cached     int
+	thoughts   int
+	tool       int
 	total      int
 }
 
 func extractGeminiUsageFromJSON(body []byte) geminiUsage {
 	var payload struct {
 		UsageMetadata struct {
-			PromptTokenCount     int `json:"promptTokenCount"`
-			CandidatesTokenCount int `json:"candidatesTokenCount"`
-			TotalTokenCount      int `json:"totalTokenCount"`
+			PromptTokenCount        int `json:"promptTokenCount"`
+			CandidatesTokenCount    int `json:"candidatesTokenCount"`
+			CachedContentTokenCount int `json:"cachedContentTokenCount"`
+			ThoughtsTokenCount      int `json:"thoughtsTokenCount"`
+			ToolUsePromptTokenCount int `json:"toolUsePromptTokenCount"`
+			TotalTokenCount         int `json:"totalTokenCount"`
 		} `json:"usageMetadata"`
 	}
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -527,11 +544,14 @@ func extractGeminiUsageFromJSON(body []byte) geminiUsage {
 	}
 	total := payload.UsageMetadata.TotalTokenCount
 	if total == 0 {
-		total = payload.UsageMetadata.PromptTokenCount + payload.UsageMetadata.CandidatesTokenCount
+		total = payload.UsageMetadata.PromptTokenCount + payload.UsageMetadata.CandidatesTokenCount + payload.UsageMetadata.ThoughtsTokenCount + payload.UsageMetadata.ToolUsePromptTokenCount
 	}
 	return geminiUsage{
 		prompt:     payload.UsageMetadata.PromptTokenCount,
 		completion: payload.UsageMetadata.CandidatesTokenCount,
+		cached:     payload.UsageMetadata.CachedContentTokenCount,
+		thoughts:   payload.UsageMetadata.ThoughtsTokenCount,
+		tool:       payload.UsageMetadata.ToolUsePromptTokenCount,
 		total:      total,
 	}
 }

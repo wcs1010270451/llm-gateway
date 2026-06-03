@@ -56,8 +56,11 @@ services:
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-https://localhost}
       GIN_TRUSTED_PROXIES: ${GIN_TRUSTED_PROXIES:-127.0.0.1,172.16.0.0/12}
       GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/secrets/gcp-credentials.json}
+      LOG_BODY_DIR: ${LOG_BODY_DIR:-/var/lib/llm-gateway/request-log-bodies}
+      LOG_BODY_RETENTION_DAYS: ${LOG_BODY_RETENTION_DAYS:-7}
     volumes:
       - ${GCP_CREDENTIALS_FILE:-/secrets/gcp-credentials.json}:/secrets/gcp-credentials.json:ro
+      - request_log_bodies:/var/lib/llm-gateway/request-log-bodies
     expose:
       - "3212"
     healthcheck:
@@ -109,3 +112,4 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+  request_log_bodies:

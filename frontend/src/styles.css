@@ -166,6 +166,10 @@ body {
   word-break: break-word;
 }
 
+.request-log-body {
+  max-height: 560px;
+}
+
 :root {
   --portal-canvas: oklch(97.7% 0.009 230);
   --portal-surface: oklch(99.5% 0.004 225);

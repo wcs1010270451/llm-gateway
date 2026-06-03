@@ -12,6 +12,7 @@ type UserConsoleService struct {
 	keys           *repository.APIKeyRepository
 	models         *repository.ModelRepository
 	logs           *repository.RequestLogRepository
+	bodies         *RequestLogBodyStore
 	anthropicProxy *AnthropicProxyService
 	openAIProxy    *OpenAIProxyService
 	geminiProxy    *GeminiProxyService
@@ -24,11 +25,12 @@ type RequestLogPage struct {
 	PageSize int                 `json:"page_size"`
 }
 
-func NewUserConsoleService(keys *repository.APIKeyRepository, models *repository.ModelRepository, logs *repository.RequestLogRepository, anthropicProxy *AnthropicProxyService, openAIProxy *OpenAIProxyService, geminiProxy *GeminiProxyService) *UserConsoleService {
+func NewUserConsoleService(keys *repository.APIKeyRepository, models *repository.ModelRepository, logs *repository.RequestLogRepository, bodies *RequestLogBodyStore, anthropicProxy *AnthropicProxyService, openAIProxy *OpenAIProxyService, geminiProxy *GeminiProxyService) *UserConsoleService {
 	return &UserConsoleService{
 		keys:           keys,
 		models:         models,
 		logs:           logs,
+		bodies:         bodies,
 		anthropicProxy: anthropicProxy,
 		openAIProxy:    openAIProxy,
 		geminiProxy:    geminiProxy,
@@ -72,7 +74,12 @@ func (s *UserConsoleService) GetAPIKeyLog(ctx context.Context, user entity.User,
 	if err := requireNormalUser(user); err != nil {
 		return entity.RequestLog{}, err
 	}
-	return s.logs.GetByUser(ctx, user.ID, logID)
+	item, err := s.logs.GetByUser(ctx, user.ID, logID)
+	if err != nil {
+		return entity.RequestLog{}, err
+	}
+	s.bodies.Attach(ctx, s.logs, &item)
+	return item, nil
 }
 
 func (s *UserConsoleService) OpenDebugAnthropicMessages(ctx context.Context, user entity.User, apiKeyID int64, input AnthropicMessagesInput) (*AnthropicMessagesResult, error) {
