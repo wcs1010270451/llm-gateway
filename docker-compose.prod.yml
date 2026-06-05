@@ -34,6 +34,19 @@ services:
     command: ["sh", "/usr/local/bin/db-migrate-up.sh"]
     restart: "no"
 
+  log-body-permissions:
+    image: alpine:3.22
+    container_name: llm-gateway-log-body-permissions
+    command:
+      [
+        "sh",
+        "-c",
+        "mkdir -p /var/lib/llm-gateway/request-log-bodies && chown -R 65532:65532 /var/lib/llm-gateway/request-log-bodies",
+      ]
+    volumes:
+      - request_log_bodies:/var/lib/llm-gateway/request-log-bodies
+    restart: "no"
+
   backend:
     build:
       context: .
@@ -46,6 +59,8 @@ services:
       postgres:
         condition: service_healthy
       migrate:
+        condition: service_completed_successfully
+      log-body-permissions:
         condition: service_completed_successfully
     environment:
       APP_ENV: production
