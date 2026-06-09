@@ -244,6 +244,8 @@ func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.
 		u += "?alt=sse"
 	}
 
+	sanitizeVertexPayload(payload)
+
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
 		return geminiJSONResponse(http.StatusInternalServerError, map[string]any{
@@ -387,6 +389,38 @@ func parseVertexAIConfig(configJSON datatypes.JSON) vertexAIConfig {
 		cfg.Location = strings.TrimSpace(value)
 	}
 	return cfg
+}
+
+// sanitizeVertexPayload strips fields that the Gemini Developer API accepts but
+// the Vertex AI endpoint rejects. Currently it removes the "id" field on
+// functionCall / functionResponse parts (Vertex correlates tool calls by name,
+// not by id, and returns 400 INVALID_ARGUMENT on the unknown field).
+func sanitizeVertexPayload(payload map[string]any) {
+	contents, ok := payload["contents"].([]any)
+	if !ok {
+		return
+	}
+	for _, c := range contents {
+		content, ok := c.(map[string]any)
+		if !ok {
+			continue
+		}
+		parts, ok := content["parts"].([]any)
+		if !ok {
+			continue
+		}
+		for _, p := range parts {
+			part, ok := p.(map[string]any)
+			if !ok {
+				continue
+			}
+			for _, key := range []string{"functionCall", "function_call", "functionResponse", "function_response"} {
+				if field, ok := part[key].(map[string]any); ok {
+					delete(field, "id")
+				}
+			}
+		}
+	}
 }
 
 func (s *GeminiProxyService) getVertexAccessToken(ctx context.Context) (string, error) {
