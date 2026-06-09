@@ -32,7 +32,7 @@ export function LogsPage() {
       width: 200,
       render: (_, record) => record.user?.display_name || record.user?.email || "-",
     },
-    { title: "模型", dataIndex: "public_model_name", width: 180, render: (value) => value || "-" },
+    { title: "模型", dataIndex: "public_model_name", width: 180, ellipsis: true, render: (value) => value || "-" },
     {
       title: "状态",
       dataIndex: "success",

@@ -27,7 +27,7 @@ function formatCost(value?: number) {
 }
 
 const topModelColumns: ColumnsType<KeyModelUsageStat> = [
-  { title: "模型", dataIndex: "public_model_name", render: (value) => value || "-" },
+  { title: "模型", dataIndex: "public_model_name", ellipsis: true, render: (value) => value || "-" },
   { title: "请求", dataIndex: "request_count", width: 100, render: formatNumber },
   { title: "Token", dataIndex: "total_tokens", width: 120, render: formatNumber },
   { title: "预估成本", dataIndex: "estimated_cost", width: 130, render: formatCost },

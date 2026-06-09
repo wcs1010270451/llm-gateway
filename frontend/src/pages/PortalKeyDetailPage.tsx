@@ -168,8 +168,8 @@ export function PortalKeyDetailPage() {
 
   const logColumns: ColumnsType<RequestLog> = [
     { title: "时间", dataIndex: "created_at", width: 180, render: formatDateTime },
-    { title: "模型", dataIndex: "public_model_name", width: 180, render: (value) => value || "-" },
-    { title: "上游模型", dataIndex: "upstream_model", width: 180, render: (value) => value || "-" },
+    { title: "模型", dataIndex: "public_model_name", width: 180, ellipsis: true, render: (value) => value || "-" },
+    { title: "上游模型", dataIndex: "upstream_model", width: 180, ellipsis: true, render: (value) => value || "-" },
     { title: "类型", dataIndex: "request_type", width: 140 },
     {
       title: "状态",

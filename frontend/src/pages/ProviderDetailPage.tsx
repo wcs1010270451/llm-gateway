@@ -1,6 +1,6 @@
 import { PlusOutlined, ReloadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Button, Card, Descriptions, Empty, Modal, Segmented, Space, Statistic, Table, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Descriptions, Empty, Modal, Segmented, Space, Statistic, Table, Tag, Tooltip, Typography, message } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
@@ -11,7 +11,7 @@ import {
   Line,
   LineChart,
   ResponsiveContainer,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -242,11 +242,14 @@ export function ProviderDetailPage() {
     {
       title: "上游模型",
       dataIndex: "upstream_model",
+      ellipsis: true,
       render: (value, record) => (
-        <div>
-          <Typography.Text strong>{value || "-"}</Typography.Text>
-          <div className="table-subtitle">{record.public_model_name || "-"}</div>
-        </div>
+        <Tooltip title={value || "-"}>
+          <div>
+            <Typography.Text strong ellipsis>{value || "-"}</Typography.Text>
+            <div className="table-subtitle">{record.public_model_name || "-"}</div>
+          </div>
+        </Tooltip>
       ),
     },
     { title: "请求", dataIndex: "request_count", width: 100, render: formatInteger },
@@ -364,7 +367,7 @@ export function ProviderDetailPage() {
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} />
                   <YAxis yAxisId="tokens" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => formatInteger(Number(value))} />
                   <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${Number(value).toFixed(4)}`} />
-                  <Tooltip formatter={formatChartValue} labelStyle={{ color: "#223842" }} />
+                  <RechartsTooltip labelStyle={{ color: "#223842" }} />
                   <Line yAxisId="tokens" type="monotone" dataKey="total_tokens" stroke="#237BB2" strokeWidth={2.5} dot={false} activeDot={{ r: 4 }} />
                   <Line yAxisId="cost" type="monotone" dataKey="estimated_cost" stroke="#8C7AC8" strokeWidth={2} dot={false} strokeDasharray="5 5" />
                 </LineChart>
@@ -386,7 +389,7 @@ export function ProviderDetailPage() {
                   <XAxis dataKey="label" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} interval={0} />
                   <YAxis yAxisId="tokens" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => formatInteger(Number(value))} />
                   <YAxis yAxisId="cost" orientation="right" tickLine={false} axisLine={false} tick={{ fill: "#60757D", fontSize: 12 }} tickFormatter={(value) => `$${Number(value).toFixed(4)}`} />
-                  <Tooltip formatter={formatChartValue} labelStyle={{ color: "#223842" }} />
+                  <RechartsTooltip labelStyle={{ color: "#223842" }} />
                   <Bar yAxisId="tokens" dataKey="total_tokens" fill="#6FAECD" radius={[8, 8, 0, 0]} />
                   <Line yAxisId="cost" type="monotone" dataKey="estimated_cost" stroke="#8C7AC8" strokeWidth={2} dot={{ r: 3 }} />
                 </ComposedChart>
