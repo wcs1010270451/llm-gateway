@@ -232,7 +232,14 @@ func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.
 		}), nil
 	}
 
-	u := fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s", cfg.Location, cfg.ProjectID, cfg.Location, modelName, upstreamMethod)
+	host := cfg.Location + "-aiplatform.googleapis.com"
+	if cfg.Location == "global" {
+		host = "aiplatform.googleapis.com"
+	}
+	modelName = strings.TrimPrefix(modelName, "publishers/google/models/")
+	modelName = strings.TrimPrefix(modelName, "models/")
+
+	u := fmt.Sprintf("https://%s/v1/projects/%s/locations/%s/publishers/google/models/%s:%s", host, cfg.ProjectID, cfg.Location, modelName, upstreamMethod)
 	if stream {
 		u += "?alt=sse"
 	}
