@@ -85,3 +85,13 @@ func TestExtractGeminiUsageDetails(t *testing.T) {
 		t.Fatalf("extractGeminiUsage() = %+v, want prompt=30 completion=12 cached=20 thoughts=7 tool=3 total=52", usage)
 	}
 }
+
+func TestBuildVertexAIGenConfigPreservesCachedContent(t *testing.T) {
+	config := buildVertexAIGenConfig(map[string]any{
+		"cachedContent": "projects/demo/locations/us-central1/cachedContents/cache-123",
+	})
+
+	if config.CachedContent != "projects/demo/locations/us-central1/cachedContents/cache-123" {
+		t.Fatalf("CachedContent = %q, want cached content resource", config.CachedContent)
+	}
+}

@@ -437,6 +437,9 @@ func buildVertexAIGenConfig(payload map[string]any) *genai.GenerateContentConfig
 			_ = json.Unmarshal(body, config)
 		}
 	}
+	if raw, ok := payload["cachedContent"].(string); ok && strings.TrimSpace(raw) != "" {
+		config.CachedContent = strings.TrimSpace(raw)
+	}
 	if raw, ok := payload["systemInstruction"]; ok {
 		if body, err := json.Marshal(raw); err == nil {
 			var content genai.Content
