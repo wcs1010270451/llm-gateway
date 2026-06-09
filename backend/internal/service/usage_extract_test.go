@@ -86,12 +86,3 @@ func TestExtractGeminiUsageDetails(t *testing.T) {
 	}
 }
 
-func TestBuildVertexAIGenConfigPreservesCachedContent(t *testing.T) {
-	config := buildVertexAIGenConfig(map[string]any{
-		"cachedContent": "projects/demo/locations/us-central1/cachedContents/cache-123",
-	})
-
-	if config.CachedContent != "projects/demo/locations/us-central1/cachedContents/cache-123" {
-		t.Fatalf("CachedContent = %q, want cached content resource", config.CachedContent)
-	}
-}

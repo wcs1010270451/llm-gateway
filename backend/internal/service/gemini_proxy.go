@@ -12,7 +12,8 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/genai"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
 	"gorm.io/datatypes"
 
 	"llm-gateway/backend/internal/entity"
@@ -29,8 +30,8 @@ type GeminiProxyService struct {
 	cipher          *ProviderKeyCipher
 	bodies          *RequestLogBodyStore
 	client          *http.Client
-	vertexClientsMu sync.RWMutex
-	vertexClients   map[string]*genai.Client
+	vertexTokenSourceMu sync.RWMutex
+	vertexTokenSource   oauth2.TokenSource
 }
 
 type GeminiGenerateContentInput struct {
@@ -68,7 +69,6 @@ func NewGeminiProxyService(routes *repository.RoutingRepository, logs *repositor
 		cipher:        cipher,
 		bodies:        bodies,
 		client:        &http.Client{},
-		vertexClients: make(map[string]*genai.Client),
 	}
 }
 
@@ -132,7 +132,7 @@ func (s *GeminiProxyService) open(ctx context.Context, input GeminiGenerateConte
 	}
 
 	if route.Provider.AdapterType == "vertexai" {
-		resp, err := s.openVertexAI(ctx, route, payload, input.Stream)
+		resp, err := s.openVertexAI(ctx, route, payload, upstreamMethod, input.Stream)
 		if err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func (s *GeminiProxyService) openGeminiREST(ctx context.Context, route repositor
 	return s.client.Do(upstreamReq)
 }
 
-func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.ResolvedRoute, payload map[string]any, stream bool) (*http.Response, error) {
+func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.ResolvedRoute, payload map[string]any, upstreamMethod string, stream bool) (*http.Response, error) {
 	cfg := parseVertexAIConfig(route.Provider.ConfigJSON)
 	if cfg.ProjectID == "" {
 		return geminiJSONResponse(http.StatusBadRequest, map[string]any{
@@ -218,21 +218,6 @@ func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.
 		}), nil
 	}
 
-	client, err := s.getVertexAIClient(ctx, cfg.ProjectID, cfg.Location)
-	if err != nil {
-		return geminiJSONResponse(http.StatusInternalServerError, map[string]any{
-			"error": map[string]any{"type": "auth_error", "message": "failed to initialize Vertex AI client: " + err.Error()},
-		}), nil
-	}
-
-	contentsJSON, _ := json.Marshal(payload["contents"])
-	var contents []*genai.Content
-	if err := json.Unmarshal(contentsJSON, &contents); err != nil {
-		return geminiJSONResponse(http.StatusBadRequest, map[string]any{
-			"error": map[string]any{"type": "invalid_request", "message": "invalid contents format"},
-		}), nil
-	}
-	config := buildVertexAIGenConfig(payload)
 	modelName := strings.TrimSpace(route.ProviderModel.UpstreamModel)
 	if modelName == "" {
 		return geminiJSONResponse(http.StatusBadRequest, map[string]any{
@@ -240,48 +225,41 @@ func (s *GeminiProxyService) openVertexAI(ctx context.Context, route repository.
 		}), nil
 	}
 
-	if stream {
-		reader, writer := io.Pipe()
-		go func() {
-			defer writer.Close()
-			for chunk, err := range client.Models.GenerateContentStream(ctx, modelName, contents, config) {
-				if err != nil {
-					_ = writeSSEJSON(writer, map[string]any{"error": map[string]any{"type": "stream_error", "message": err.Error()}})
-					return
-				}
-				chunkJSON, err := json.Marshal(chunk)
-				if err != nil {
-					continue
-				}
-				if _, err := writer.Write(append(append([]byte("data: "), chunkJSON...), '\n', '\n')); err != nil {
-					return
-				}
-			}
-		}()
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
-			Body:       reader,
-		}, nil
-	}
-
-	resp, err := client.Models.GenerateContent(ctx, modelName, contents, config)
-	if err != nil {
-		return geminiJSONResponse(vertexAIErrorCode(err), map[string]any{
-			"error": map[string]any{"type": "upstream_error", "message": err.Error()},
-		}), nil
-	}
-	body, err := json.Marshal(resp)
+	accessToken, err := s.getVertexAccessToken(ctx)
 	if err != nil {
 		return geminiJSONResponse(http.StatusInternalServerError, map[string]any{
-			"error": map[string]any{"type": "internal_error", "message": "failed to encode response"},
+			"error": map[string]any{"type": "auth_error", "message": "failed to obtain Vertex AI access token: " + err.Error()},
 		}), nil
 	}
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json; charset=utf-8"}},
-		Body:       io.NopCloser(bytes.NewReader(body)),
-	}, nil
+
+	u := fmt.Sprintf("https://%s-aiplatform.googleapis.com/v1/projects/%s/locations/%s/publishers/google/models/%s:%s", cfg.Location, cfg.ProjectID, cfg.Location, modelName, upstreamMethod)
+	if stream {
+		u += "?alt=sse"
+	}
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return geminiJSONResponse(http.StatusInternalServerError, map[string]any{
+			"error": map[string]any{"type": "internal_error", "message": "failed to encode request payload"},
+		}), nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return geminiJSONResponse(http.StatusInternalServerError, map[string]any{
+			"error": map[string]any{"type": "internal_error", "message": "failed to build upstream request"},
+		}), nil
+	}
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return geminiJSONResponse(http.StatusBadGateway, map[string]any{
+			"error": map[string]any{"type": "upstream_error", "message": "vertex ai connection failed: " + err.Error()},
+		}), nil
+	}
+	return resp, nil
 }
 
 func (s *GeminiProxyService) LogGenerateContentResult(ctx context.Context, result *GeminiGenerateContentResult, bodyPreview []byte, copyErr error) {
@@ -404,84 +382,33 @@ func parseVertexAIConfig(configJSON datatypes.JSON) vertexAIConfig {
 	return cfg
 }
 
-func (s *GeminiProxyService) getVertexAIClient(ctx context.Context, projectID string, location string) (*genai.Client, error) {
-	key := projectID + ":" + location
-	s.vertexClientsMu.RLock()
-	if client, ok := s.vertexClients[key]; ok {
-		s.vertexClientsMu.RUnlock()
-		return client, nil
-	}
-	s.vertexClientsMu.RUnlock()
+func (s *GeminiProxyService) getVertexAccessToken(ctx context.Context) (string, error) {
+	s.vertexTokenSourceMu.RLock()
+	ts := s.vertexTokenSource
+	s.vertexTokenSourceMu.RUnlock()
 
-	s.vertexClientsMu.Lock()
-	defer s.vertexClientsMu.Unlock()
-	if client, ok := s.vertexClients[key]; ok {
-		return client, nil
+	if ts == nil {
+		s.vertexTokenSourceMu.Lock()
+		if s.vertexTokenSource == nil {
+			tsLocal, err := google.DefaultTokenSource(ctx, "https://www.googleapis.com/auth/cloud-platform")
+			if err != nil {
+				s.vertexTokenSourceMu.Unlock()
+				return "", err
+			}
+			s.vertexTokenSource = tsLocal
+		}
+		ts = s.vertexTokenSource
+		s.vertexTokenSourceMu.Unlock()
 	}
-	client, err := genai.NewClient(ctx, &genai.ClientConfig{
-		Project:  projectID,
-		Location: location,
-		Backend:  genai.BackendVertexAI,
-	})
+
+	tok, err := ts.Token()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	s.vertexClients[key] = client
-	return client, nil
+	return tok.AccessToken, nil
 }
 
-func buildVertexAIGenConfig(payload map[string]any) *genai.GenerateContentConfig {
-	config := &genai.GenerateContentConfig{}
-	if raw, ok := payload["generationConfig"]; ok {
-		if body, err := json.Marshal(raw); err == nil {
-			_ = json.Unmarshal(body, config)
-		}
-	}
-	if raw, ok := payload["cachedContent"].(string); ok && strings.TrimSpace(raw) != "" {
-		config.CachedContent = strings.TrimSpace(raw)
-	}
-	if raw, ok := payload["systemInstruction"]; ok {
-		if body, err := json.Marshal(raw); err == nil {
-			var content genai.Content
-			if err := json.Unmarshal(body, &content); err == nil && len(content.Parts) > 0 {
-				config.SystemInstruction = &content
-			}
-		}
-	}
-	if raw, ok := payload["tools"]; ok {
-		if body, err := json.Marshal(raw); err == nil {
-			var tools []*genai.Tool
-			if err := json.Unmarshal(body, &tools); err == nil {
-				config.Tools = tools
-			}
-		}
-	}
-	if raw, ok := payload["toolConfig"]; ok {
-		if body, err := json.Marshal(raw); err == nil {
-			var toolConfig genai.ToolConfig
-			if err := json.Unmarshal(body, &toolConfig); err == nil {
-				config.ToolConfig = &toolConfig
-			}
-		}
-	}
-	return config
-}
 
-func vertexAIErrorCode(err error) int {
-	message := strings.ToLower(err.Error())
-	switch {
-	case strings.Contains(message, "quota") || strings.Contains(message, "rate") || strings.Contains(message, "429"):
-		return http.StatusTooManyRequests
-	case strings.Contains(message, "permission") || strings.Contains(message, "403") || strings.Contains(message, "unauthorized"):
-		return http.StatusForbidden
-	case strings.Contains(message, "not found") || strings.Contains(message, "404"):
-		return http.StatusNotFound
-	case strings.Contains(message, "invalid") || strings.Contains(message, "400"):
-		return http.StatusBadRequest
-	default:
-		return http.StatusBadGateway
-	}
-}
 
 func geminiJSONResponse(statusCode int, payload map[string]any) *http.Response {
 	body, _ := json.Marshal(payload)
