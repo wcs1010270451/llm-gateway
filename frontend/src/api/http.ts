@@ -15,3 +15,19 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      useAuthStore.getState().clearSession();
+      // Public pages shouldn't be abruptly redirected when a background token check fails.
+      // They just gracefully degrade to the logged-out state because Zustand updates localStorage and triggers re-renders.
+      const publicPaths = ["/", "/login"];
+      if (!publicPaths.includes(window.location.pathname)) {
+        window.location.href = "/login";
+      }
+    }
+    return Promise.reject(error);
+  }
+);
