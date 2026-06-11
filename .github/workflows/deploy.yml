@@ -1,0 +1,51 @@
+name: Deploy to GCP VM
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch: # 允许在 GitHub 网页上手动点击运行
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            # 1. 确保目录存在
+            mkdir -p ~/code/llm-gateway
+            cd ~/code/llm-gateway
+
+            # 2. 拉取最新 release 分支代码
+            if [ ! -d ".git" ]; then
+              echo "Directory is not a git repository. Cloning..."
+              git clone -b release https://github.com/${{ github.repository }}.git .
+            else
+              echo "Pulling latest changes..."
+              git fetch origin release
+              git checkout release || git checkout -b release origin/release
+              git reset --hard origin/release
+            fi
+
+            # 3. 确保 .env 文件存在 (如果不存在，从 example 复制)
+            if [ ! -f "configs/.env.prod" ]; then
+              echo "configs/.env.prod not found! Copying from example. YOU MUST UPDATE PASSWORDS MANUALLY LATER!"
+              cp configs/.env.prod.example configs/.env.prod
+            fi
+
+            # 4. 强制执行数据库迁移
+            echo "Running database migrations..."
+            sudo docker compose --env-file configs/.env.prod -f docker-compose.prod.yml run --rm migrate
+
+            # 5. 重新构建并启动容器
+            echo "Building and restarting containers..."
+            sudo docker compose --env-file configs/.env.prod -f docker-compose.prod.yml up -d --build
+
+            # 6. 清理不再使用的旧镜像，释放磁盘空间
+            sudo docker image prune -f

@@ -27,6 +27,9 @@ frontend/node_modules/.tmp/
 *.log
 logs/
 
+# Docs
+docs/
+
 # Secrets / local credentials
 exports/*.sql
 *.pem

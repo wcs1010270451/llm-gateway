@@ -117,6 +117,7 @@ export function ProviderEditorDrawer({ open, provider, submitting, onClose, onSu
               { value: "api_key", label: "API Key" },
               { value: "local_oauth", label: "Local OAuth" },
               { value: "adc", label: "ADC" },
+              { value: "claude_oauth", label: "Claude OAuth (订阅)" },
               { value: "none", label: "None" },
             ]}
           />

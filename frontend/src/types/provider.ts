@@ -4,7 +4,7 @@ export interface Provider {
   slug: string;
   vendor: "openai" | "anthropic" | "google" | "custom";
   adapter_type: "openai_compatible" | "anthropic" | "claude_code" | "gemini" | "vertexai";
-  auth_type: "api_key" | "local_oauth" | "adc" | "none";
+  auth_type: "api_key" | "local_oauth" | "adc" | "claude_oauth" | "none";
   base_url: string;
   config_json: Record<string, unknown>;
   status: "active" | "disabled";

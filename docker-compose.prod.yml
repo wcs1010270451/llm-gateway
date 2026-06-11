@@ -84,6 +84,10 @@
       LOG_BODY_RETENTION_DAYS: ${LOG_BODY_RETENTION_DAYS:-7}
     volumes:
       - ${GCP_CREDENTIALS_FILE:-/secrets/gcp-credentials.json}:/secrets/gcp-credentials.json:ro
+      # owner_claude_max 供应商用的 Claude Max 订阅凭证。
+      # 必须挂目录（非单文件）：cron 刷新时会重写/重命名文件，单文件挂载会让容器看不到更新。
+      # 该目录里的 .credentials.json 需对容器用户(uid 65532)可读，由 cron 暂存一份只读副本（见 README）。
+      - ${CLAUDE_CREDENTIALS_DIR:-/srv/claude-creds}:/secrets/claude:ro
       - request_log_bodies:/var/lib/llm-gateway/request-log-bodies
     logging:
       options:

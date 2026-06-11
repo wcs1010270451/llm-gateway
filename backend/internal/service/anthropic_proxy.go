@@ -114,27 +114,54 @@ func (s *AnthropicProxyService) OpenMessages(ctx context.Context, input Anthropi
 
 	// 只重写 model 字段，其余 Anthropic Messages 参数透传，保留供应商兼容扩展能力。
 	payload["model"] = route.ProviderModel.UpstreamModel
-	upstreamBody, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
 
-	upstreamURL := buildUpstreamURL(route.Provider.BaseURL, "/v1/messages")
-	upstreamReq, err := http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(upstreamBody))
-	if err != nil {
-		return nil, err
-	}
-	upstreamReq.Header.Set("Content-Type", "application/json")
-	if route.Provider.AuthType == "api_key" {
-		upstreamReq.Header.Set("x-api-key", upstreamAPIKey)
-	}
-	if version := strings.TrimSpace(input.Headers.Get("anthropic-version")); version != "" {
-		upstreamReq.Header.Set("anthropic-version", version)
+	var (
+		upstreamBody []byte
+		upstreamReq  *http.Request
+	)
+	if route.Provider.AuthType == "claude_oauth" {
+		// owner 自有 Claude Max 订阅：注入 Claude Code 伪装（system 迁移 + cch + OAuth Bearer），直连 Anthropic。
+		cfg := parseClaudeOAuthConfig(route.Provider.ConfigJSON)
+		token, tokenErr := loadClaudeAccessToken(cfg.CredentialsFile)
+		if tokenErr != nil {
+			return nil, fmt.Errorf("claude_oauth credentials: %w", tokenErr)
+		}
+		upstreamBody, err = injectClaudeSystemAndCCH(payload, cfg.fullVersion())
+		if err != nil {
+			return nil, err
+		}
+		base := strings.TrimSpace(route.Provider.BaseURL)
+		if base == "" {
+			base = defaultAnthropicBaseURL
+		}
+		upstreamURL := buildUpstreamURL(base, "/v1/messages") + "?beta=true"
+		upstreamReq, err = http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(upstreamBody))
+		if err != nil {
+			return nil, err
+		}
+		applyClaudeOAuthHeaders(upstreamReq.Header, token, cfg, stream)
 	} else {
-		upstreamReq.Header.Set("anthropic-version", "2023-06-01")
-	}
-	if beta := strings.TrimSpace(input.Headers.Get("anthropic-beta")); beta != "" {
-		upstreamReq.Header.Set("anthropic-beta", beta)
+		upstreamBody, err = json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		upstreamURL := buildUpstreamURL(route.Provider.BaseURL, "/v1/messages")
+		upstreamReq, err = http.NewRequestWithContext(ctx, http.MethodPost, upstreamURL, bytes.NewReader(upstreamBody))
+		if err != nil {
+			return nil, err
+		}
+		upstreamReq.Header.Set("Content-Type", "application/json")
+		if route.Provider.AuthType == "api_key" {
+			upstreamReq.Header.Set("x-api-key", upstreamAPIKey)
+		}
+		if version := strings.TrimSpace(input.Headers.Get("anthropic-version")); version != "" {
+			upstreamReq.Header.Set("anthropic-version", version)
+		} else {
+			upstreamReq.Header.Set("anthropic-version", "2023-06-01")
+		}
+		if beta := strings.TrimSpace(input.Headers.Get("anthropic-beta")); beta != "" {
+			upstreamReq.Header.Set("anthropic-beta", beta)
+		}
 	}
 
 	resp, err := s.client.Do(upstreamReq)

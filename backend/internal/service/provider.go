@@ -110,7 +110,7 @@ func (s *ProviderService) buildProvider(input ProviderInput) (entity.Provider, e
 	if input.AuthType == "" {
 		input.AuthType = "api_key"
 	}
-	if !allowed(input.AuthType, "api_key", "local_oauth", "adc", "none") {
+	if !allowed(input.AuthType, "api_key", "local_oauth", "adc", "none", "claude_oauth") {
 		return entity.Provider{}, validationError("invalid provider auth_type")
 	}
 	if input.Status == "" {
