@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -214,10 +215,14 @@ func (s *AnthropicProxyService) LogMessagesResult(ctx context.Context, result *A
 	if statusCode < 200 || statusCode >= 300 {
 		errorType = "upstream_error"
 		errorMessage = truncateString(string(bodyPreview), 1000)
+		// 打到 stderr，让上游错误（如 long context 需 credits）能进 Cloud Logging。
+		log.Printf("anthropic upstream error: model=%s status=%d body=%s",
+			result.PublicModel, statusCode, truncateString(string(bodyPreview), 500))
 	}
 	if copyErr != nil {
 		errorType = "response_copy_error"
 		errorMessage = copyErr.Error()
+		log.Printf("anthropic response copy error: model=%s: %v", result.PublicModel, copyErr)
 	}
 	logMissingUsage(result.Route, result.PublicModel, result.Stream, "messages", statusCode, usage.input, usage.output, totalTokens)
 

@@ -103,6 +103,8 @@ func handleAPIKeyError(c *gin.Context, err error) {
 }
 
 func handleProxyError(c *gin.Context, err error) {
+	// 打到 stderr，让飞行前校验/转发错误（如 base_url 缺失、凭证读取失败）能进 Cloud Logging。
+	log.Printf("anthropic proxy error: %s %s: %v", c.Request.Method, c.Request.URL.Path, err)
 	var validationErr service.ValidationError
 	switch {
 	case errors.As(err, &validationErr):
