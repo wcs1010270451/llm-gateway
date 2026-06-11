@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, InputNumber, Select, Space } from "antd";
+import { Button, Modal, Form, Input, InputNumber, Select, Space } from "antd";
 import { useEffect } from "react";
 
 import type { APIKey, APIKeyInput } from "../../types";
@@ -47,14 +47,13 @@ export function APIKeyEditorDrawer({ open, apiKey, submitting, onClose, onSubmit
   }
 
   return (
-    <Drawer
-      rootClassName="portal-drawer"
+    <Modal
       title={apiKey ? "编辑 Key" : "新建 Key"}
-      size={480}
+      width={480}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -63,7 +62,7 @@ export function APIKeyEditorDrawer({ open, apiKey, submitting, onClose, onSubmit
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
           <Input placeholder="客服助手生产环境" />
         </Form.Item>
@@ -85,6 +84,6 @@ export function APIKeyEditorDrawer({ open, apiKey, submitting, onClose, onSubmit
           <InputNumber min={0} precision={0} style={{ width: "100%" }} />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }

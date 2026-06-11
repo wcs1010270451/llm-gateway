@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, Select, Space } from "antd";
+import { Button, Modal, Form, Input, Select, Space } from "antd";
 import { useEffect } from "react";
 
 import type { Model, ModelFamily, ModelInput } from "../../types";
@@ -62,13 +62,13 @@ export function ModelEditorDrawer({ open, model, initialFamily, families, submit
   }
 
   return (
-    <Drawer
+    <Modal
       title={model ? "编辑模型" : "新建模型"}
       width={560}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -77,7 +77,7 @@ export function ModelEditorDrawer({ open, model, initialFamily, families, submit
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="name" label="对外模型名" rules={[{ required: true, message: "请输入模型名" }]}>
           <Input placeholder="gpt5.5" />
         </Form.Item>
@@ -124,6 +124,6 @@ export function ModelEditorDrawer({ open, model, initialFamily, families, submit
           <Input.TextArea rows={6} spellCheck={false} />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }

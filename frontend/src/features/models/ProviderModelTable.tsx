@@ -39,6 +39,8 @@ export function ProviderModelTable({
     {
       title: "供应商",
       dataIndex: "provider",
+      fixed: "left",
+      width: 150,
       render: (_, record) => (
         <div>
           <Typography.Text strong>{record.provider?.name ?? "-"}</Typography.Text>
@@ -91,6 +93,7 @@ export function ProviderModelTable({
       title: "操作",
       key: "actions",
       width: 220,
+      fixed: "right",
       render: (_, record) => (
         <Space size={4}>
           <Button

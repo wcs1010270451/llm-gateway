@@ -160,6 +160,8 @@ export function ModelFamiliesPage() {
     {
       title: "系列",
       dataIndex: "name",
+      fixed: "left",
+      width: 150,
       render: (value, record) => (
         <div>
           <Typography.Text strong>{record.display_name || value}</Typography.Text>
@@ -179,6 +181,7 @@ export function ModelFamiliesPage() {
       title: "操作",
       key: "actions",
       width: 210,
+      fixed: "right",
       render: (_, record) => (
         <Space size={4}>
           <Button
@@ -255,6 +258,7 @@ export function ModelFamiliesPage() {
           dataSource={familiesQuery.data?.items ?? []}
           loading={familiesQuery.isLoading}
           pagination={false}
+          scroll={{ x: "max-content" }}
           expandable={{
             expandedRowKeys: expandedFamilyKeys,
             onExpandedRowsChange: (keys) => setExpandedFamilyKeys([...keys]),
@@ -350,14 +354,23 @@ function ModelFamilyDrawer({
     });
   }, [form, item, open]);
 
+  async function handleFinish(values: ModelFamilyFormValues) {
+    await onSubmit({
+      name: values.name,
+      display_name: values.display_name ?? "",
+      status: values.status,
+      description: values.description ?? "",
+    });
+  }
+
   return (
-    <Drawer
-      title={item ? "编辑模型系列" : "新建模型系列"}
+    <Modal
+      title={item ? "编辑族类" : "新建族类"}
       width={480}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -366,7 +379,7 @@ function ModelFamilyDrawer({
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={onSubmit}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="name" label="系列标识" rules={[{ required: true, message: "请输入系列标识" }]}>
           <Input placeholder="claude / gpt / gemini" />
         </Form.Item>
@@ -385,6 +398,6 @@ function ModelFamilyDrawer({
           <Input.TextArea rows={3} />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Drawer, Form, Input, InputNumber, Select, Space } from "antd";
+import { Button, Checkbox, Modal, Form, Input, InputNumber, Select, Space } from "antd";
 import { useEffect } from "react";
 
 import type { Provider, ProviderModel, ProviderModelInput } from "../../types";
@@ -69,13 +69,13 @@ export function ProviderModelEditorDrawer({
   }
 
   return (
-    <Drawer
+    <Modal
       title={providerModel ? "编辑供应商模型" : "新增供应商模型"}
       width={580}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -84,7 +84,7 @@ export function ProviderModelEditorDrawer({
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="provider_id" label="供应商" rules={[{ required: true, message: "请选择供应商" }]}>
           <Select
             showSearch
@@ -124,6 +124,6 @@ export function ProviderModelEditorDrawer({
           <Input.TextArea rows={6} spellCheck={false} />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }

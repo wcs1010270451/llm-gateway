@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, Select, Space } from "antd";
+import { Button, Modal, Form, Input, Select, Space } from "antd";
 import { useEffect } from "react";
 
 import type { User, UserInput } from "../../types";
@@ -46,13 +46,13 @@ export function UserEditorDrawer({ open, user, submitting, onClose, onSubmit }: 
   }
 
   return (
-    <Drawer
+    <Modal
       title={user ? "编辑用户" : "新建用户"}
       width={480}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -61,7 +61,7 @@ export function UserEditorDrawer({ open, user, submitting, onClose, onSubmit }: 
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="email" label="邮箱" rules={[{ required: true, message: "请输入邮箱" }]}>
           <Input placeholder="user@example.com" />
         </Form.Item>
@@ -92,6 +92,6 @@ export function UserEditorDrawer({ open, user, submitting, onClose, onSubmit }: 
           />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }

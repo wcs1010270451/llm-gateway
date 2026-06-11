@@ -27,6 +27,8 @@ export function ModelTable({
     {
       title: "模型",
       dataIndex: "name",
+      fixed: "left",
+      width: 200,
       render: (value, record) => (
         <div>
           <Typography.Text strong>{value}</Typography.Text>
@@ -86,6 +88,7 @@ export function ModelTable({
       title: "操作",
       key: "actions",
       width: 134,
+      fixed: "right",
       render: (_, record) => {
         const isEnabled = record.status === "enabled";
         const canEnable = Boolean(record.active_provider_model_id);

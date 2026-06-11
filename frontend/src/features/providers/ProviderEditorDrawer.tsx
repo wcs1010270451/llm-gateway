@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, Input, Select, Space } from "antd";
+import { Button, Modal, Form, Input, Select, Space } from "antd";
 import { useEffect } from "react";
 
 import type { Provider, ProviderInput } from "../../types";
@@ -64,13 +64,13 @@ export function ProviderEditorDrawer({ open, provider, submitting, onClose, onSu
   }
 
   return (
-    <Drawer
+    <Modal
       title={provider ? "编辑供应商" : "新建供应商"}
       width={520}
       open={open}
-      onClose={onClose}
-      destroyOnHidden
-      extra={
+      onCancel={onClose}
+      destroyOnClose
+      footer={
         <Space>
           <Button onClick={onClose}>取消</Button>
           <Button type="primary" loading={submitting} onClick={() => form.submit()}>
@@ -79,7 +79,7 @@ export function ProviderEditorDrawer({ open, provider, submitting, onClose, onSu
         </Space>
       }
     >
-      <Form layout="vertical" form={form} onFinish={handleFinish}>
+      <Form layout="vertical" form={form} onFinish={handleFinish} style={{ marginTop: 24 }}>
         <Form.Item name="name" label="名称" rules={[{ required: true, message: "请输入名称" }]}>
           <Input placeholder="Anthropic 官方" />
         </Form.Item>
@@ -148,6 +148,6 @@ export function ProviderEditorDrawer({ open, provider, submitting, onClose, onSu
           <Input.TextArea rows={6} spellCheck={false} />
         </Form.Item>
       </Form>
-    </Drawer>
+    </Modal>
   );
 }
